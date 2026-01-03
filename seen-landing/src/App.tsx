@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Users, Target, Camera, Bell, Shield, ArrowRight, CheckCircle2, Flame, Zap, Eye, Share2, Trophy } from 'lucide-react';
+import { Users, Target, Camera, Shield, ArrowRight, CheckCircle2, Zap, Eye, Share2, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
-// GetWaitlist Configuration
-const GETWAITLIST_API_KEY = '5144f69049ca7a7a54aaaf77b3c46391c52b14031a06ba8dc92bb0769a405b03';
-// Note: You might need your Waitlist ID from the GetWaitlist dashboard
+// GetWaitlist Configuration - Get your Waitlist ID from the GetWaitlist dashboard
 const GETWAITLIST_ID = 'YOUR_WAITLIST_ID'; 
 
 function IPhoneMockup() {
