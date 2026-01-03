@@ -81,4 +81,57 @@ actor FeedService {
             method: "DELETE"
         )
     }
+
+    // MARK: - Feed Item Reactions
+
+    /// Add or update a reaction on a feed item (check-in or post)
+    func addReaction(itemType: String, itemId: String, type: InteractionType) async throws -> ReactionResponse {
+        let request = ["type": type.rawValue]
+        return try await APIClient.shared.request(
+            path: "/feed/items/\(itemType)/\(itemId)/react",
+            method: "POST",
+            body: request
+        )
+    }
+
+    /// Remove reaction from a feed item
+    func removeReaction(itemType: String, itemId: String) async throws {
+        let _: EmptyResponse = try await APIClient.shared.request(
+            path: "/feed/items/\(itemType)/\(itemId)/react",
+            method: "DELETE"
+        )
+    }
+
+    // MARK: - Feed Item Comments
+
+    /// Get comments for a feed item
+    func getComments(itemType: String, itemId: String, cursor: String? = nil, limit: Int = 20) async throws -> FeedCommentsResponse {
+        var path = "/feed/items/\(itemType)/\(itemId)/comments?limit=\(limit)"
+        if let cursor = cursor {
+            path += "&cursor=\(cursor)"
+        }
+        return try await APIClient.shared.request(path: path)
+    }
+
+    /// Add a comment to a feed item
+    func addComment(itemType: String, itemId: String, content: String?, mediaUrl: String? = nil, mediaType: MediaType? = nil) async throws -> FeedComment {
+        let request = CreateFeedCommentRequest(
+            content: content,
+            mediaUrl: mediaUrl,
+            mediaType: mediaType?.rawValue
+        )
+        return try await APIClient.shared.request(
+            path: "/feed/items/\(itemType)/\(itemId)/comments",
+            method: "POST",
+            body: request
+        )
+    }
+
+    /// Delete a comment
+    func deleteComment(commentId: String) async throws {
+        let _: EmptyResponse = try await APIClient.shared.request(
+            path: "/feed/comments/\(commentId)",
+            method: "DELETE"
+        )
+    }
 }

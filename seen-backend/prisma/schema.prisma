@@ -31,6 +31,8 @@ model User {
   authoredPosts  PodPost[]      @relation("PostAuthor")
   targetedPosts  PodPost[]      @relation("PostTarget")
   goalComments   GoalComment[]
+  postReactions  PostReaction[]
+  feedComments   FeedComment[]
 
   @@map("users")
 }
@@ -161,6 +163,7 @@ model CheckIn {
   goal         Goal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   interactions Interaction[]
+  feedComments FeedComment[]
 
   @@unique([goalId, date])
   @@index([userId])
@@ -259,14 +262,33 @@ model PodPost {
   targetUserId String?    @map("target_user_id")
   createdAt    DateTime   @default(now()) @map("created_at")
 
-  pod    Pod   @relation(fields: [podId], references: [id], onDelete: Cascade)
-  user   User  @relation("PostAuthor", fields: [userId], references: [id], onDelete: Cascade)
-  target User? @relation("PostTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  pod          Pod            @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user         User           @relation("PostAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  target       User?          @relation("PostTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  reactions    PostReaction[]
+  feedComments FeedComment[]
 
   @@index([podId])
   @@index([userId])
   @@index([targetUserId])
   @@map("pod_posts")
+}
+
+// ============== POST REACTIONS ==============
+
+model PostReaction {
+  id        String          @id @default(uuid())
+  postId    String          @map("post_id")
+  userId    String          @map("user_id")
+  type      InteractionType
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  post PodPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_reactions")
 }
 
 // ============== GOAL COMMENTS (With Media) ==============
@@ -286,4 +308,26 @@ model GoalComment {
   @@index([goalId])
   @@index([userId])
   @@map("goal_comments")
+}
+
+// ============== FEED COMMENTS (For Check-ins and Posts) ==============
+
+model FeedComment {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  content   String?
+  mediaUrl  String?    @map("media_url")
+  mediaType MediaType? @map("media_type")
+  checkInId String?    @map("check_in_id")
+  postId    String?    @map("post_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIn CheckIn? @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  post    PodPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([checkInId])
+  @@index([postId])
+  @@index([userId])
+  @@map("feed_comments")
 }

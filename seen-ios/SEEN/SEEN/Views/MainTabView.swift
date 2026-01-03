@@ -378,21 +378,29 @@ struct UnifiedFeedView: View {
         feedPosts = [
             PodPost(
                 id: "1",
-                type: .CELEBRATION,
-                content: "Just hit a 10-day streak! 🔥 Feeling unstoppable!",
+                type: .CHECK_IN,
+                content: "Just hit a 10-day streak! Feeling unstoppable!",
                 mediaUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400",
                 mediaType: .PHOTO,
                 author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
                 target: nil,
                 podId: "pod1",
                 podName: "Fitness Squad",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800))
+                goalTitle: "Morning Workout",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800)),
+                goalDescription: "30 minutes of exercise every morning before work",
+                goalFrequency: "Daily",
+                currentStreak: 10,
+                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800)),
+                reactionCount: 5,
+                commentCount: 2,
+                myReaction: .FIRE,
+                topReactions: [.FIRE, .HIGH_FIVE]
             ),
             PodPost(
                 id: "2",
                 type: .ENCOURAGEMENT,
-                content: "You've got this! Just 30 more pages to go! 📚",
+                content: "You've got this! Just 30 more pages to go!",
                 mediaUrl: nil,
                 mediaType: nil,
                 author: PostAuthor(id: "user2", name: "Mike", avatarUrl: "https://i.pravatar.cc/150?img=12"),
@@ -400,12 +408,20 @@ struct UnifiedFeedView: View {
                 podId: "pod2",
                 podName: "Book Club",
                 goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600)),
+                goalDescription: nil,
+                goalFrequency: nil,
+                currentStreak: nil,
+                completedAt: nil,
+                reactionCount: 1,
+                commentCount: 0,
+                myReaction: nil,
+                topReactions: [.HEART]
             ),
             PodPost(
                 id: "3",
                 type: .NUDGE,
-                content: "Hey, don't forget your morning workout! We're waiting for your check-in 💪",
+                content: "Hey, don't forget your morning workout! We're waiting for your check-in",
                 mediaUrl: nil,
                 mediaType: nil,
                 author: PostAuthor(id: "user4", name: "Alex", avatarUrl: "https://i.pravatar.cc/150?img=8"),
@@ -413,20 +429,36 @@ struct UnifiedFeedView: View {
                 podId: "pod1",
                 podName: "Fitness Squad",
                 goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-5400))
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-5400)),
+                goalDescription: nil,
+                goalFrequency: nil,
+                currentStreak: nil,
+                completedAt: nil,
+                reactionCount: 0,
+                commentCount: 1,
+                myReaction: nil,
+                topReactions: []
             ),
             PodPost(
                 id: "4",
-                type: .CELEBRATION,
-                content: "Morning meditation done! Starting the day with a clear mind ✨",
+                type: .CHECK_IN,
+                content: "Morning meditation done! Starting the day with a clear mind",
                 mediaUrl: "https://images.unsplash.com/photo-1545389336-cf090694435e?w=400",
                 mediaType: .PHOTO,
                 author: PostAuthor(id: "user6", name: "Luna", avatarUrl: "https://i.pravatar.cc/150?img=9"),
                 target: nil,
                 podId: "pod3",
                 podName: "Morning Routines",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200))
+                goalTitle: "Morning Meditation",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200)),
+                goalDescription: "10 minutes of mindfulness every morning",
+                goalFrequency: "Daily",
+                currentStreak: 7,
+                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200)),
+                reactionCount: 3,
+                commentCount: 0,
+                myReaction: .HEART,
+                topReactions: [.HEART, .CLAP]
             ),
             PodPost(
                 id: "5",
@@ -439,20 +471,36 @@ struct UnifiedFeedView: View {
                 podId: "pod2",
                 podName: "Book Club",
                 goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-10800))
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-10800)),
+                goalDescription: nil,
+                goalFrequency: nil,
+                currentStreak: nil,
+                completedAt: nil,
+                reactionCount: 2,
+                commentCount: 0,
+                myReaction: nil,
+                topReactions: [.HIGH_FIVE, .CLAP]
             ),
             PodPost(
                 id: "6",
-                type: .CELEBRATION,
-                content: "5K run complete! Personal best time 🏃‍♀️",
+                type: .CHECK_IN,
+                content: "5K run complete! Personal best time",
                 mediaUrl: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400",
                 mediaType: .PHOTO,
                 author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
                 target: nil,
                 podId: "pod1",
                 podName: "Fitness Squad",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400))
+                goalTitle: "Run 5K",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400)),
+                goalDescription: "Run 5 kilometers three times a week",
+                goalFrequency: "Mon, Wed, Fri",
+                currentStreak: 4,
+                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400)),
+                reactionCount: 8,
+                commentCount: 3,
+                myReaction: .FIRE,
+                topReactions: [.FIRE, .HIGH_FIVE, .CLAP]
             ),
         ]
         
@@ -475,26 +523,42 @@ struct UnifiedFeedView: View {
     }
 }
 
-// MARK: - Unified Post Card (with Pod Badge)
+// MARK: - Unified Post Card (with Pod Badge, Metadata, and Interactions)
 
 struct UnifiedPostCard: View {
     let post: PodPost
-    
+    let onReactionChanged: ((PodPost) -> Void)?
+
+    @State private var showingComments = false
+    @State private var currentReaction: InteractionType?
+    @State private var reactionCount: Int
+
+    init(post: PodPost, onReactionChanged: ((PodPost) -> Void)? = nil) {
+        self.post = post
+        self.onReactionChanged = onReactionChanged
+        self._currentReaction = State(initialValue: post.myReaction)
+        self._reactionCount = State(initialValue: post.reactionCount)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with pod badge
             HStack(spacing: 10) {
                 // Author avatar
                 authorAvatar
-                
+
                 VStack(alignment: .leading, spacing: 2) {
-                    // Author name + target
+                    // Author name + target (or goal title for check-ins)
                     HStack(spacing: 4) {
                         Text(post.author.name)
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                        
-                        if let target = post.target {
+
+                        if post.type == .CHECK_IN {
+                            Text("checked in")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else if let target = post.target {
                             Image(systemName: "arrow.right")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
@@ -503,7 +567,7 @@ struct UnifiedPostCard: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    
+
                     // Pod badge + time
                     HStack(spacing: 6) {
                         if let podName = post.podName {
@@ -516,38 +580,201 @@ struct UnifiedPostCard: View {
                                 .background(Color.seenGreen.opacity(0.15))
                                 .clipShape(Capsule())
                         }
-                        
+
                         Text(timeAgo)
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 // Post type emoji
                 Text(post.type.emoji)
                     .font(.title2)
             }
-            
+
+            // Goal metadata for CHECK_IN type
+            if post.type == .CHECK_IN {
+                checkInMetadata
+            }
+
             // Content
             if let content = post.content, !content.isEmpty {
                 Text(content)
                     .font(.body)
                     .foregroundStyle(.primary)
             }
-            
+
             // Media
             if let mediaUrl = post.mediaUrl, let url = URL(string: mediaUrl) {
                 mediaContent(url: url)
             }
+
+            // Interaction bar
+            interactionBar
         }
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
+        .sheet(isPresented: $showingComments) {
+            CommentsSheet(
+                itemType: post.type == .CHECK_IN ? "checkin" : "post",
+                itemId: post.id
+            )
+        }
     }
-    
+
+    // MARK: - Check-in Metadata
+
+    @ViewBuilder
+    private var checkInMetadata: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Goal title
+            if let goalTitle = post.goalTitle {
+                Text(goalTitle)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            }
+
+            // Goal description
+            if let goalDescription = post.goalDescription, !goalDescription.isEmpty {
+                Text(goalDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            // Badges row
+            HStack(spacing: 10) {
+                // Streak badge
+                if let streak = post.currentStreak, streak > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(.orange)
+                        Text("\(streak) day\(streak == 1 ? "" : "s")")
+                            .fontWeight(.medium)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.15))
+                    .clipShape(Capsule())
+                }
+
+                // Frequency badge
+                if let frequency = post.goalFrequency {
+                    HStack(spacing: 4) {
+                        Image(systemName: "repeat")
+                            .foregroundStyle(.seenBlue)
+                        Text(frequency)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.seenBlue.opacity(0.15))
+                    .clipShape(Capsule())
+                }
+
+                // Completion time
+                if let completedAt = post.formattedCompletedAt {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .foregroundStyle(.seenPurple)
+                        Text(completedAt)
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.seenPurple.opacity(0.15))
+                    .clipShape(Capsule())
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Interaction Bar
+
+    private var interactionBar: some View {
+        HStack(spacing: 0) {
+            // Reaction buttons
+            HStack(spacing: 2) {
+                ForEach(InteractionType.allCases, id: \.self) { type in
+                    ReactionButton(
+                        type: type,
+                        isSelected: currentReaction == type,
+                        action: { toggleReaction(type) }
+                    )
+                }
+            }
+
+            Spacer()
+
+            // Reaction count (if any)
+            if reactionCount > 0 {
+                Text("\(reactionCount)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.trailing, 8)
+            }
+
+            // Comment button
+            Button {
+                showingComments = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "bubble.right")
+                        .font(.subheadline)
+                    if post.commentCount > 0 {
+                        Text("\(post.commentCount)")
+                            .font(.caption)
+                    }
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(.tertiarySystemBackground))
+                .clipShape(Capsule())
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func toggleReaction(_ type: InteractionType) {
+        Task {
+            let itemType = post.type == .CHECK_IN ? "checkin" : "post"
+
+            if currentReaction == type {
+                // Remove reaction
+                do {
+                    try await FeedService.shared.removeReaction(itemType: itemType, itemId: post.id)
+                    await MainActor.run {
+                        currentReaction = nil
+                        reactionCount = max(0, reactionCount - 1)
+                    }
+                } catch {
+                    print("Failed to remove reaction: \(error)")
+                }
+            } else {
+                // Add/change reaction
+                let hadReaction = currentReaction != nil
+                do {
+                    _ = try await FeedService.shared.addReaction(itemType: itemType, itemId: post.id, type: type)
+                    await MainActor.run {
+                        currentReaction = type
+                        if !hadReaction {
+                            reactionCount += 1
+                        }
+                    }
+                } catch {
+                    print("Failed to add reaction: \(error)")
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var authorAvatar: some View {
         if let avatarUrl = post.author.avatarUrl, let url = URL(string: avatarUrl) {
@@ -571,7 +798,7 @@ struct UnifiedPostCard: View {
             avatarPlaceholder
         }
     }
-    
+
     private var avatarPlaceholder: some View {
         Text(String(post.author.name.prefix(1)).uppercased())
             .font(.headline)
@@ -589,7 +816,7 @@ struct UnifiedPostCard: View {
                     )
             )
     }
-    
+
     @ViewBuilder
     private func mediaContent(url: URL) -> some View {
         switch post.mediaType {
@@ -657,12 +884,12 @@ struct UnifiedPostCard: View {
             EmptyView()
         }
     }
-    
+
     private var timeAgo: String {
         guard let date = post.createdAtDate else { return "" }
-        
+
         let elapsed = Date().timeIntervalSince(date)
-        
+
         if elapsed < 60 {
             return "now"
         } else if elapsed < 3600 {
@@ -672,6 +899,28 @@ struct UnifiedPostCard: View {
         } else {
             return "\(Int(elapsed / 86400))d"
         }
+    }
+}
+
+// MARK: - Reaction Button
+
+struct ReactionButton: View {
+    let type: InteractionType
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(type.emoji)
+                .font(.title3)
+                .scaleEffect(isSelected ? 1.2 : 1.0)
+                .padding(6)
+                .background(
+                    isSelected ? Color.seenGreen.opacity(0.2) : Color.clear
+                )
+                .clipShape(Circle())
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
     }
 }
 

@@ -56,12 +56,41 @@ struct PodPost: Codable, Identifiable {
     let goalTitle: String?
     let createdAt: String
 
+    // Goal metadata (for CHECK_IN type)
+    let goalDescription: String?
+    let goalFrequency: String?
+    let currentStreak: Int?
+    let completedAt: String?
+
+    // Interaction data
+    let reactionCount: Int
+    let commentCount: Int
+    let myReaction: InteractionType?
+    let topReactions: [InteractionType]
+
     var createdAtDate: Date? {
         ISO8601DateFormatter().date(from: createdAt)
     }
 
     var hasMedia: Bool {
         mediaUrl != nil && !mediaUrl!.isEmpty
+    }
+
+    var formattedCompletedAt: String? {
+        guard let completedAt = completedAt else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = formatter.date(from: completedAt) else {
+            // Try without fractional seconds
+            formatter.formatOptions = [.withInternetDateTime]
+            guard let date = formatter.date(from: completedAt) else { return nil }
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            return timeFormatter.string(from: date)
+        }
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h:mm a"
+        return timeFormatter.string(from: date)
     }
 }
 

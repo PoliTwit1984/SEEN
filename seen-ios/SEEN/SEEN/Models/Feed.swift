@@ -67,10 +67,48 @@ struct FeedInteraction: Codable, Identifiable {
     let userName: String
 }
 
-// Request models
+// MARK: - Feed Comment
+
+struct FeedComment: Codable, Identifiable {
+    let id: String
+    let content: String?
+    let mediaUrl: String?
+    let mediaType: MediaType?
+    let author: FeedUser
+    let createdAt: String
+
+    var createdAtDate: Date? {
+        ISO8601DateFormatter().date(from: createdAt)
+    }
+
+    var hasMedia: Bool {
+        mediaUrl != nil && !mediaUrl!.isEmpty
+    }
+
+    var relativeTime: String {
+        guard let date = createdAtDate else { return "" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+struct FeedCommentsResponse: Codable {
+    let comments: [FeedComment]
+    let nextCursor: String?
+}
+
+// MARK: - Request models
+
 struct CreateInteractionRequest: Encodable {
     let checkInId: String
     let type: String
+}
+
+struct CreateFeedCommentRequest: Encodable {
+    let content: String?
+    let mediaUrl: String?
+    let mediaType: String?
 }
 
 struct InteractionResponse: Codable {
@@ -78,5 +116,11 @@ struct InteractionResponse: Codable {
     let checkInId: String
     let type: InteractionType
     let user: FeedUser
+    let createdAt: String
+}
+
+struct ReactionResponse: Codable {
+    let id: String
+    let type: InteractionType
     let createdAt: String
 }
