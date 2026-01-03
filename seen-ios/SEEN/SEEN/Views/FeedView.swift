@@ -138,6 +138,38 @@ struct FeedItemCard: View {
                     .foregroundStyle(.tertiary)
             }
             
+            // Proof photo if any
+            if let proofUrl = item.checkIn.proofUrl, !proofUrl.isEmpty {
+                AsyncImage(url: URL(string: proofUrl)) { phase in
+                    switch phase {
+                    case .empty:
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray5))
+                            .frame(height: 200)
+                            .overlay {
+                                ProgressView()
+                            }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(maxHeight: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    case .failure:
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray5))
+                            .frame(height: 100)
+                            .overlay {
+                                Image(systemName: "photo")
+                                    .foregroundStyle(.secondary)
+                            }
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .padding(.leading, 56)
+            }
+            
             // Comment if any
             if let comment = item.checkIn.comment, !comment.isEmpty {
                 Text(comment)

@@ -426,13 +426,23 @@ struct CheckInWithProofView: View {
         isLoading = true
         defer { isLoading = false }
         
-        // TODO: Upload capturedImage to storage and get URL
-        // For MVP, we'll skip the actual upload
+        var proofUrl: String? = nil
+        
+        // Upload photo if captured
+        if let image = capturedImage {
+            do {
+                proofUrl = try await PhotoUploadService.shared.uploadPhoto(image: image, goalId: goalId)
+            } catch {
+                errorMessage = "Failed to upload photo: \(error.localizedDescription)"
+                return
+            }
+        }
         
         do {
             let response = try await CheckInService.shared.checkIn(
                 goalId: goalId,
-                comment: comment.isEmpty ? nil : comment
+                comment: comment.isEmpty ? nil : comment,
+                proofUrl: proofUrl
             )
             onSuccess(response)
             dismiss()
