@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import podRoutes from './routes/pods';
 import goalRoutes from './routes/goals';
+import checkInRoutes from './routes/checkins';
 import waitlistRoutes from './routes/waitlist';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
@@ -44,6 +45,7 @@ app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/pods', podRoutes);
 app.use('/goals', goalRoutes);
+app.use('/checkins', checkInRoutes);
 app.use('/waitlist', waitlistRoutes);
 
 // Error handler

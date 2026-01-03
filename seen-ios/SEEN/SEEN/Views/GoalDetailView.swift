@@ -2,10 +2,11 @@
 //  GoalDetailView.swift
 //  SEEN
 //
-//  Goal details with check-in history
+//  Goal details with check-in history and check-in button
 //
 
 import SwiftUI
+import PhotosUI
 
 struct GoalDetailView: View {
     let goalId: String
@@ -15,21 +16,62 @@ struct GoalDetailView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showingArchiveAlert = false
+    @State private var isCheckedInToday = false
+    @State private var isCheckingIn = false
+    @State private var showingCheckInSheet = false
+    @State private var checkInSuccess = false
     
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("Loading...")
-            } else if let goal = goal {
-                goalContent(goal)
-            } else {
-                ContentUnavailableView("Goal Not Found", systemImage: "exclamationmark.triangle")
+        ZStack {
+            Group {
+                if isLoading {
+                    ProgressView("Loading...")
+                } else if let goal = goal {
+                    goalContent(goal)
+                } else {
+                    ContentUnavailableView("Goal Not Found", systemImage: "exclamationmark.triangle")
+                }
+            }
+            
+            // Floating check-in button
+            if let goal = goal, !isCheckedInToday {
+                VStack {
+                    Spacer()
+                    
+                    Button {
+                        if goal.needsProof {
+                            showingCheckInSheet = true
+                        } else {
+                            Task { await quickCheckIn() }
+                        }
+                    } label: {
+                        HStack {
+                            if isCheckingIn {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Check In")
+                            }
+                        }
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .cornerRadius(16)
+                    }
+                    .disabled(isCheckingIn)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 8)
+                }
             }
         }
         .navigationTitle(goal?.title ?? "Goal")
         .navigationBarTitleDisplayMode(.large)
         .task {
             await loadGoal()
+            await checkTodayStatus()
         }
         .alert("Error", isPresented: .constant(errorMessage != nil)) {
             Button("OK") { errorMessage = nil }
@@ -43,6 +85,36 @@ struct GoalDetailView: View {
             }
         } message: {
             Text("This goal will be hidden from your active goals. You can't undo this.")
+        }
+        .alert("Checked In! ✅", isPresented: $checkInSuccess) {
+            Button("OK") { }
+        } message: {
+            if let goal = goal {
+                Text("🔥 Streak: \(goal.currentStreak)")
+            }
+        }
+        .sheet(isPresented: $showingCheckInSheet) {
+            CheckInWithProofView(goalId: goalId) { response in
+                isCheckedInToday = true
+                // Update goal streaks
+                if var g = goal {
+                    g = Goal(
+                        id: g.id, podId: g.podId, podName: g.podName,
+                        userId: g.userId, userName: g.userName, userAvatarUrl: g.userAvatarUrl,
+                        title: g.title, description: g.description,
+                        frequencyType: g.frequencyType, frequencyDays: g.frequencyDays,
+                        reminderTime: g.reminderTime, deadlineTime: g.deadlineTime,
+                        timezone: g.timezone, requiresProof: g.requiresProof,
+                        startDate: g.startDate, endDate: g.endDate,
+                        currentStreak: response.currentStreak,
+                        longestStreak: response.longestStreak,
+                        totalCheckIns: g.totalCheckIns, completedCheckIns: g.completedCheckIns,
+                        isArchived: g.isArchived, createdAt: g.createdAt, checkIns: g.checkIns
+                    )
+                    goal = g
+                }
+                checkInSuccess = true
+            }
         }
     }
     
@@ -68,6 +140,26 @@ struct GoalDetailView: View {
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+            }
+            
+            // Today's Status
+            Section {
+                HStack {
+                    if isCheckedInToday {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.title2)
+                        Text("Completed today!")
+                            .fontWeight(.medium)
+                    } else {
+                        Image(systemName: "circle.dotted")
+                            .foregroundStyle(.orange)
+                            .font(.title2)
+                        Text("Not yet checked in")
+                            .fontWeight(.medium)
+                    }
+                    Spacer()
+                }
             }
             
             // Details Section
@@ -127,10 +219,17 @@ struct GoalDetailView: View {
                     Label("Archive Goal", systemImage: "archivebox")
                 }
             }
+            
+            // Spacer for floating button
+            Section {
+                Color.clear.frame(height: 60)
+            }
+            .listRowBackground(Color.clear)
         }
         .listStyle(.insetGrouped)
         .refreshable {
             await loadGoal()
+            await checkTodayStatus()
         }
     }
     
@@ -148,12 +247,178 @@ struct GoalDetailView: View {
         }
     }
     
+    private func checkTodayStatus() async {
+        do {
+            let status = try await CheckInService.shared.getTodayStatus(goalId: goalId)
+            isCheckedInToday = status.checkedIn
+        } catch {
+            print("Check today status error: \(error)")
+        }
+    }
+    
+    private func quickCheckIn() async {
+        isCheckingIn = true
+        defer { isCheckingIn = false }
+        
+        do {
+            let response = try await CheckInService.shared.checkIn(goalId: goalId)
+            isCheckedInToday = true
+            
+            // Update goal streaks locally
+            if var g = goal {
+                g = Goal(
+                    id: g.id, podId: g.podId, podName: g.podName,
+                    userId: g.userId, userName: g.userName, userAvatarUrl: g.userAvatarUrl,
+                    title: g.title, description: g.description,
+                    frequencyType: g.frequencyType, frequencyDays: g.frequencyDays,
+                    reminderTime: g.reminderTime, deadlineTime: g.deadlineTime,
+                    timezone: g.timezone, requiresProof: g.requiresProof,
+                    startDate: g.startDate, endDate: g.endDate,
+                    currentStreak: response.currentStreak,
+                    longestStreak: response.longestStreak,
+                    totalCheckIns: g.totalCheckIns, completedCheckIns: g.completedCheckIns,
+                    isArchived: g.isArchived, createdAt: g.createdAt, checkIns: g.checkIns
+                )
+                goal = g
+            }
+            
+            checkInSuccess = true
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = "Failed to check in"
+            print("Check-in error: \(error)")
+        }
+    }
+    
     private func archiveGoal() async {
         do {
             _ = try await GoalService.shared.archiveGoal(id: goalId)
             dismiss()
         } catch {
             errorMessage = "Failed to archive goal"
+        }
+    }
+}
+
+// MARK: - Check-in With Proof View
+
+struct CheckInWithProofView: View {
+    let goalId: String
+    let onSuccess: (CheckInResponse) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var photoData: Data?
+    @State private var comment = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                photoSection
+                commentSection
+            }
+            .navigationTitle("Check In")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    submitButton
+                }
+            }
+            .onChange(of: selectedPhoto) { _, newValue in
+                loadPhoto(from: newValue)
+            }
+            .alert("Error", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+    
+    private var photoSection: some View {
+        Section {
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                photoPickerLabel
+            }
+        } header: {
+            Text("Photo Proof")
+        } footer: {
+            Text("This goal requires photo proof to complete")
+        }
+    }
+    
+    @ViewBuilder
+    private var photoPickerLabel: some View {
+        if photoData != nil {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                Text("Photo selected")
+                Spacer()
+                Text("Change")
+            }
+        } else {
+            HStack {
+                Image(systemName: "camera.fill")
+                    .foregroundStyle(.secondary)
+                Text("Select Photo Proof")
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+    
+    private var commentSection: some View {
+        Section {
+            TextField("Add a note (optional)", text: $comment, axis: .vertical)
+                .lineLimit(3...5)
+        } header: {
+            Text("Comment")
+        }
+    }
+    
+    @ViewBuilder
+    private var submitButton: some View {
+        if isLoading {
+            ProgressView()
+        } else {
+            Button("Submit") {
+                Task { await submitCheckIn() }
+            }
+            .disabled(photoData == nil)
+        }
+    }
+    
+    private func loadPhoto(from item: PhotosPickerItem?) {
+        Task {
+            if let data = try? await item?.loadTransferable(type: Data.self) {
+                photoData = data
+            }
+        }
+    }
+    
+    private func submitCheckIn() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            let response = try await CheckInService.shared.checkIn(
+                goalId: goalId,
+                comment: comment.isEmpty ? nil : comment
+            )
+            onSuccess(response)
+            dismiss()
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
+        } catch {
+            errorMessage = "Failed to check in"
         }
     }
 }
@@ -233,7 +498,6 @@ struct CheckInRow: View {
     }
     
     private var formattedDate: String {
-        // Simple date formatting - the date string is in ISO format
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withFullDate]
         
