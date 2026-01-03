@@ -26,6 +26,7 @@ model User {
   memberships   PodMember[]
   goals         Goal[]
   checkIns      CheckIn[]
+  interactions  Interaction[]
 
   @@map("users")
 }
@@ -151,12 +152,37 @@ model CheckIn {
   clientTimestamp DateTime?     @map("client_timestamp")
   createdAt       DateTime      @default(now()) @map("created_at")
 
-  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal         Goal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interactions Interaction[]
 
   @@unique([goalId, date])
   @@index([userId])
   @@map("check_ins")
+}
+
+// ============== INTERACTIONS (Phase 6) ==============
+
+enum InteractionType {
+  HIGH_FIVE
+  FIRE
+  CLAP
+  HEART
+}
+
+model Interaction {
+  id        String          @id @default(uuid())
+  checkInId String          @map("check_in_id")
+  userId    String          @map("user_id")
+  type      InteractionType
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([checkInId, userId])
+  @@index([userId])
+  @@map("interactions")
 }
 
 // ============== WAITLIST ==============

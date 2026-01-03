@@ -6,6 +6,8 @@ import userRoutes from './routes/users';
 import podRoutes from './routes/pods';
 import goalRoutes from './routes/goals';
 import checkInRoutes from './routes/checkins';
+import feedRoutes from './routes/feed';
+import interactionRoutes from './routes/interactions';
 import waitlistRoutes from './routes/waitlist';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
@@ -46,6 +48,8 @@ app.use('/users', userRoutes);
 app.use('/pods', podRoutes);
 app.use('/goals', goalRoutes);
 app.use('/checkins', checkInRoutes);
+app.use('/feed', feedRoutes);
+app.use('/interactions', interactionRoutes);
 app.use('/waitlist', waitlistRoutes);
 
 // Error handler

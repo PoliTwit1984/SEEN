@@ -14,7 +14,6 @@ struct HomeView: View {
     @State private var isLoading = false
     @State private var showingCreatePod = false
     @State private var showingJoinPod = false
-    @State private var showingSignOutAlert = false
     @State private var errorMessage: String?
     
     var body: some View {
@@ -30,12 +29,6 @@ struct HomeView: View {
             }
             .navigationTitle("My Pods")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingSignOutAlert = true }) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                    }
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { showingCreatePod = true }) {
@@ -73,14 +66,6 @@ struct HomeView: View {
                 JoinPodView { pod in
                     await loadPods()
                 }
-            }
-            .alert("Sign Out", isPresented: $showingSignOutAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Sign Out", role: .destructive) {
-                    authService.logout()
-                }
-            } message: {
-                Text("Are you sure you want to sign out?")
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") { errorMessage = nil }
