@@ -30,7 +30,7 @@ app.use(express.json());
 // Health check endpoint
 app.get('/health', async (_req: Request, res: Response) => {
   let dbStatus = 'disconnected';
-  
+
   try {
     await prisma.$queryRaw`SELECT 1`;
     dbStatus = 'connected';
@@ -46,6 +46,31 @@ app.get('/health', async (_req: Request, res: Response) => {
       database: dbStatus,
     },
   });
+});
+
+// Admin endpoint to reset all data (for development)
+app.delete('/admin/reset-all', async (_req: Request, res: Response) => {
+  try {
+    // Delete in order due to foreign key constraints
+    await prisma.interaction.deleteMany({});
+    await prisma.goalComment.deleteMany({});
+    await prisma.checkIn.deleteMany({});
+    await prisma.goal.deleteMany({});
+    await prisma.podPost.deleteMany({});
+    await prisma.podMember.deleteMany({});
+    await prisma.pod.deleteMany({});
+
+    res.json({
+      success: true,
+      message: 'All pods and related data deleted',
+    });
+  } catch (error) {
+    console.error('Reset failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset data',
+    });
+  }
 });
 
 // Temporary: Get first pod and user for seeding
