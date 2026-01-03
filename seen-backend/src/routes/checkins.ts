@@ -43,9 +43,10 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
     }
 
     // Validate proof if required
-    if (goal.requiresProof && checkInStatus === 'COMPLETED' && !proofUrl) {
-      throw new ValidationError('This goal requires photo proof');
-    }
+    // TODO: Re-enable when photo upload is implemented
+    // if (goal.requiresProof && checkInStatus === 'COMPLETED' && !proofUrl) {
+    //   throw new ValidationError('This goal requires photo proof');
+    // }
 
     // Determine the check-in date based on goal's timezone
     const now = DateTime.now().setZone(goal.timezone);
