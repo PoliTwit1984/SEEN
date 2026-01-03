@@ -2,7 +2,7 @@
 //  AuthView.swift
 //  SEEN
 //
-//  Sign in with Apple - Liquid Glass Design
+//  Sign in with Apple - HIG Compliant
 //
 
 import SwiftUI
@@ -11,6 +11,7 @@ import AuthenticationServices
 struct AuthView: View {
     var authService: AuthService
     @State private var showFeatures = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         ZStack {
@@ -22,15 +23,15 @@ struct AuthView: View {
                 
                 // Logo and Title
                 VStack(spacing: 20) {
-                    // Glowing logo
+                    // Logo with subtle glow
                     ZStack {
                         Circle()
-                            .fill(Color.seenGreen.opacity(0.3))
+                            .fill(Color.seenGreen.opacity(0.2))
                             .blur(radius: 40)
                             .frame(width: 150, height: 150)
                         
                         Circle()
-                            .fill(.ultraThinMaterial)
+                            .fill(.regularMaterial)
                             .frame(width: 100, height: 100)
                             .overlay {
                                 Image(systemName: "eye.fill")
@@ -43,30 +44,22 @@ struct AuthView: View {
                                         )
                                     )
                             }
-                            .overlay {
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [.white.opacity(0.5), .white.opacity(0.1)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1
-                                    )
-                            }
                     }
+                    .accessibilityHidden(true)
                     
                     VStack(spacing: 8) {
                         Text("SEEN")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
                             .tracking(6)
                         
                         Text("Accountability that works")
-                            .font(.system(size: 17, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("SEEN. Accountability that works.")
                 
                 Spacer()
                 
@@ -91,11 +84,13 @@ struct AuthView: View {
                     } onCompletion: { result in
                         handleSignIn(result: result)
                     }
-                    .signInWithAppleButtonStyle(.white)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                     .frame(height: 56)
+                    .frame(minWidth: 44, minHeight: 44) // Accessibility tap target
                     .cornerRadius(16)
-                    .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
                     .padding(.horizontal, 32)
+                    .accessibilityLabel("Sign in with Apple")
+                    .accessibilityHint("Double tap to sign in using your Apple ID")
                     
                     if authService.isLoading {
                         LoadingView(message: "Signing in...")
@@ -104,11 +99,12 @@ struct AuthView: View {
                     if let error = authService.error {
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundStyle(.red)
                             .padding(.horizontal, 32)
                             .multilineTextAlignment(.center)
                             .glassBackground(cornerRadius: 12)
                             .padding(.horizontal, 32)
+                            .accessibilityLabel("Error: \(error)")
                     }
                 }
                 
@@ -171,16 +167,19 @@ struct FeatureRow: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(color)
             }
+            .accessibilityHidden(true)
             
             Text(text)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white)
+                .font(.body)
+                .fontWeight(.medium)
             
             Spacer()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .glassBackground(cornerRadius: 16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(text)
     }
 }
 

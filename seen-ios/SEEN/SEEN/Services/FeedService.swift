@@ -26,6 +26,34 @@ actor FeedService {
         )
     }
     
+    // MARK: - Get Pod Story Items
+    
+    /// Get feed items for a pod formatted for story view (most recent first, with photos prioritized)
+    func getPodStoryItems(podId: String, limit: Int = 30) async throws -> [FeedItem] {
+        // Uses the same endpoint but fetches more items for the story experience
+        let items: [FeedItem] = try await APIClient.shared.request(
+            path: "/feed/pod/\(podId)?limit=\(limit)&offset=0"
+        )
+        
+        // Prioritize items with photos for better story experience
+        let sortedItems = items.sorted { item1, item2 in
+            // Items with photos first
+            let hasPhoto1 = item1.checkIn.proofUrl != nil && !item1.checkIn.proofUrl!.isEmpty
+            let hasPhoto2 = item2.checkIn.proofUrl != nil && !item2.checkIn.proofUrl!.isEmpty
+            
+            if hasPhoto1 && !hasPhoto2 {
+                return true
+            } else if !hasPhoto1 && hasPhoto2 {
+                return false
+            }
+            
+            // Then by date (most recent first)
+            return item1.createdAt > item2.createdAt
+        }
+        
+        return sortedItems
+    }
+    
     // MARK: - Interactions
     
     func addInteraction(checkInId: String, type: InteractionType) async throws -> InteractionResponse {

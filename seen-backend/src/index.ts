@@ -11,6 +11,8 @@ import interactionRoutes from './routes/interactions';
 import deviceRoutes from './routes/devices';
 import uploadRoutes from './routes/uploads';
 import waitlistRoutes from './routes/waitlist';
+import postRoutes from './routes/posts';
+import commentRoutes from './routes/comments';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
 import { startDeadlineWorker, scheduleAllDeadlineChecks } from './workers/deadlineWorker';
@@ -57,6 +59,8 @@ app.use('/interactions', interactionRoutes);
 app.use('/devices', deviceRoutes);
 app.use('/uploads', uploadRoutes);
 app.use('/waitlist', waitlistRoutes);
+app.use('/pods', postRoutes);  // Mount post routes under /pods (for /pods/:podId/posts)
+app.use('/goals', commentRoutes);  // Mount comment routes under /goals (for /goals/:goalId/comments)
 
 // Error handler
 app.use(errorHandler);

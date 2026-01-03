@@ -2,7 +2,7 @@
 //  PodDetailView.swift
 //  SEEN
 //
-//  Pod details with members and goals
+//  Pod details with members and goals - HIG Compliant
 //
 
 import SwiftUI
@@ -39,6 +39,8 @@ struct PodDetailView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityLabel("Add goal")
+                    .accessibilityHint("Double tap to create a new goal")
                 }
             }
         }
@@ -124,6 +126,7 @@ struct PodDetailView: View {
                                     .font(.headline)
                                     .foregroundStyle(.secondary)
                             }
+                            .accessibilityHidden(true)
                         
                         VStack(alignment: .leading) {
                             Text(member.name)
@@ -136,6 +139,8 @@ struct PodDetailView: View {
                         
                         Spacer()
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(member.name), \(member.role == .OWNER ? "Owner" : "Member")")
                 }
             } header: {
                 let count = pod.members?.count ?? 0
@@ -159,6 +164,8 @@ struct PodDetailView: View {
                     }
                 }
                 .tint(.primary)
+                .accessibilityLabel(showingInviteCode ? "Invite code: \(pod.inviteCode ?? "")" : "Reveal invite code")
+                .accessibilityHint(showingInviteCode ? "Double tap to hide" : "Double tap to reveal")
                 
                 if showingInviteCode {
                     Button(action: { copyInviteCode(pod.inviteCode ?? "") }) {
@@ -168,6 +175,7 @@ struct PodDetailView: View {
                         }
                     }
                     .tint(copiedCode ? .green : .accentColor)
+                    .accessibilityLabel(copiedCode ? "Code copied to clipboard" : "Copy invite code")
                 }
             } header: {
                 Text("Invite Friends")

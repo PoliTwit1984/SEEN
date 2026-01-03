@@ -2,7 +2,7 @@
 //  GoalDetailView.swift
 //  SEEN
 //
-//  Goal details with check-in history and check-in button
+//  Goal details with check-in history and check-in button - HIG Compliant
 //
 
 import SwiftUI
@@ -56,13 +56,16 @@ struct GoalDetailView: View {
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 44) // Accessibility: 44pt min
                         .padding()
-                        .background(Color.green)
+                        .background(Color.seenGreen)
                         .cornerRadius(16)
                     }
                     .disabled(isCheckingIn)
                     .padding(.horizontal, 24)
                     .padding(.bottom, 8)
+                    .accessibilityLabel("Check in")
+                    .accessibilityHint(goal.needsProof ? "Double tap to add photo proof" : "Double tap to complete today's goal")
                 }
             }
         }
@@ -467,6 +470,7 @@ struct StatCard: View {
             Image(systemName: icon)
                 .font(.title2)
                 .foregroundStyle(color)
+                .accessibilityHidden(true)
             
             Text(value)
                 .font(.title)
@@ -480,6 +484,8 @@ struct StatCard: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 

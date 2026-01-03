@@ -2,11 +2,12 @@
 //  PhotoUploadService.swift
 //  SEEN
 //
-//  Handles photo uploads to cloud storage
+//  Handles media uploads (photos, videos, audio) to cloud storage
 //
 
 import Foundation
 import UIKit
+import AVFoundation
 
 actor PhotoUploadService {
     static let shared = PhotoUploadService()
@@ -56,14 +57,59 @@ actor PhotoUploadService {
         }
         
         // Upload to presigned URL
+        return try await uploadData(imageData, to: presigned, contentType: "image/jpeg")
+    }
+    
+    // MARK: - Upload Video
+    
+    func uploadVideo(url: URL, goalId: String) async throws -> String {
+        // Read video data
+        let videoData = try Data(contentsOf: url)
+        
+        // Get presigned URL for mp4
+        let presigned = try await getPresignedURL(goalId: goalId, fileType: "mp4")
+        
+        if !presigned.configured {
+            print("⚠️ Storage not configured - returning mock URL")
+            return presigned.publicUrl
+        }
+        
+        return try await uploadData(videoData, to: presigned, contentType: "video/mp4")
+    }
+    
+    // MARK: - Upload Audio
+    
+    func uploadAudio(url: URL, goalId: String) async throws -> String {
+        // Read audio data
+        let audioData = try Data(contentsOf: url)
+        
+        // Determine file type from extension
+        let fileExtension = url.pathExtension.lowercased()
+        let fileType = fileExtension == "m4a" ? "m4a" : "mp3"
+        let contentType = fileExtension == "m4a" ? "audio/m4a" : "audio/mpeg"
+        
+        // Get presigned URL
+        let presigned = try await getPresignedURL(goalId: goalId, fileType: fileType)
+        
+        if !presigned.configured {
+            print("⚠️ Storage not configured - returning mock URL")
+            return presigned.publicUrl
+        }
+        
+        return try await uploadData(audioData, to: presigned, contentType: contentType)
+    }
+    
+    // MARK: - Generic Upload
+    
+    private func uploadData(_ data: Data, to presigned: PresignedURLResponse, contentType: String) async throws -> String {
         guard let uploadURL = URL(string: presigned.uploadUrl) else {
             throw UploadError.invalidURL
         }
         
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "PUT"
-        request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
-        request.httpBody = imageData
+        request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = data
         
         let (_, response) = try await URLSession.shared.data(for: request)
         

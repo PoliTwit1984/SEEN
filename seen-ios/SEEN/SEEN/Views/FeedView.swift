@@ -2,7 +2,7 @@
 //  FeedView.swift
 //  SEEN
 //
-//  Activity feed showing pod members' check-ins
+//  Visual activity feed with photo-first design
 //
 
 import SwiftUI
@@ -43,24 +43,23 @@ struct FeedView: View {
     
     private var emptyState: some View {
         EmptyStateView(
-            icon: "bubble.left.and.bubble.right",
-            title: "No Activity Yet",
-            message: "Check-ins from your pods will appear here"
+            icon: "camera.fill",
+            title: "No Check-ins Yet",
+            message: "When you and your pod members complete goals, they'll appear here"
         )
     }
     
     private var feedList: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
+            LazyVStack(spacing: 0) {
                 ForEach(feedItems) { item in
-                    FeedItemCard(item: item) { updatedItem in
+                    PhotoFeedCard(item: item) { updatedItem in
                         if let index = feedItems.firstIndex(where: { $0.id == updatedItem.id }) {
                             feedItems[index] = updatedItem
                         }
                     }
                 }
             }
-            .padding()
         }
     }
     
@@ -83,140 +82,38 @@ struct FeedView: View {
     }
 }
 
-// MARK: - Feed Item Card
+// MARK: - Photo Feed Card (Instagram-style)
 
-struct FeedItemCard: View {
+struct PhotoFeedCard: View {
     let item: FeedItem
     let onUpdate: (FeedItem) -> Void
     
     @State private var isReacting = false
+    @State private var showDoubleTapHeart = false
     @State private var showingReactions = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                // Avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.seenGreen.opacity(0.3))
-                        .frame(width: 44, height: 44)
-                    
-                    Text(String(item.user.name.prefix(1)))
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.user.name)
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                    
-                    HStack(spacing: 4) {
-                        Text("completed")
-                            .foregroundStyle(.white.opacity(0.5))
-                        Text(item.goal.title)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.seenGreen)
-                    }
-                    .font(.subheadline)
-                    .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                Text(timeAgo)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.4))
+        VStack(alignment: .leading, spacing: 0) {
+            // Header - User and Pod info
+            headerSection
+            
+            // Photo (main content)
+            photoSection
+            
+            // Action bar
+            actionBar
+            
+            // Reactions summary
+            if item.interactionCount > 0 {
+                reactionsSummary
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
             }
             
-            // Proof photo if any
-            if let proofUrl = item.checkIn.proofUrl, !proofUrl.isEmpty {
-                AsyncImage(url: URL(string: proofUrl)) { phase in
-                    switch phase {
-                    case .empty:
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray5))
-                            .frame(height: 200)
-                            .overlay {
-                                ProgressView()
-                            }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxHeight: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    case .failure:
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray5))
-                            .frame(height: 100)
-                            .overlay {
-                                Image(systemName: "photo")
-                                    .foregroundStyle(.secondary)
-                            }
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-                .padding(.leading, 56)
-            }
-            
-            // Comment if any
-            if let comment = item.checkIn.comment, !comment.isEmpty {
-                Text(comment)
-                    .font(.body)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .padding(.leading, 56)
-            }
-            
-            // Pod badge
-            if let pod = item.pod {
-                HStack {
-                    Image(systemName: "person.3.fill")
-                        .font(.caption2)
-                    Text(pod.name)
-                        .font(.caption)
-                }
-                .foregroundStyle(.secondary)
-                .padding(.leading, 56)
-            }
-            
-            // Reactions bar
-            HStack {
-                // Existing reactions
-                if item.interactionCount > 0 {
-                    reactionsSummary
-                }
-                
-                Spacer()
-                
-                // Add reaction button
-                Button {
-                    showingReactions = true
-                } label: {
-                    HStack(spacing: 4) {
-                        if let myType = item.myInteractionType {
-                            Text(myType.emoji)
-                        } else {
-                            Image(systemName: "hand.thumbsup")
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                    }
-                    .font(.title3)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(item.hasInteracted ? Color.seenGreen.opacity(0.3) : .white.opacity(0.1))
-                    )
-                }
-                .disabled(isReacting)
-            }
-            .padding(.leading, 56)
+            // Goal and comment
+            captionSection
         }
-        .padding()
-        .glassBackground()
+        .padding(.bottom, 16)
         .confirmationDialog("React", isPresented: $showingReactions) {
             ForEach(InteractionType.allCases, id: \.self) { type in
                 Button("\(type.emoji) \(type.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)") {
@@ -232,21 +129,204 @@ struct FeedItemCard: View {
         }
     }
     
+    // MARK: - Header
+    
+    private var headerSection: some View {
+        HStack(spacing: 12) {
+            // Avatar
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.seenGreen, Color.seenMint],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
+                
+                Text(String(item.user.name.prefix(1)))
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.user.name)
+                    .font(.subheadline.weight(.semibold))
+                
+                if let pod = item.pod {
+                    Text(pod.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            Text(timeAgo)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.user.name) in \(item.pod?.name ?? "pod"), \(timeAgo)")
+    }
+    
+    // MARK: - Photo Section
+    
+    private var photoSection: some View {
+        GeometryReader { geometry in
+            ZStack {
+                if let proofUrl = item.checkIn.proofUrl, !proofUrl.isEmpty, let url = URL(string: proofUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            placeholderView
+                                .overlay {
+                                    ProgressView()
+                                        .tint(.white)
+                                }
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geometry.size.width, height: geometry.size.width)
+                                .clipped()
+                        case .failure:
+                            placeholderView
+                        @unknown default:
+                            placeholderView
+                        }
+                    }
+                } else {
+                    placeholderView
+                }
+                
+                // Double-tap heart animation
+                if showDoubleTapHeart {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 80))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.3), radius: 10)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                handleDoubleTap()
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .accessibilityLabel(item.checkIn.proofUrl != nil ? "Photo proof for check-in" : "Check-in completed")
+    }
+    
+    private var placeholderView: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.seenGreen.opacity(0.6), Color.seenMint.opacity(0.4)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            VStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.white.opacity(0.8))
+                
+                Text(item.goal.title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+        }
+    }
+    
+    // MARK: - Action Bar
+    
+    private var actionBar: some View {
+        HStack(spacing: 16) {
+            // Reaction buttons
+            HStack(spacing: 12) {
+                ForEach(InteractionType.allCases.prefix(4), id: \.self) { type in
+                    Button {
+                        Task { await addReaction(type) }
+                    } label: {
+                        Text(type.emoji)
+                            .font(.title2)
+                            .opacity(item.myInteractionType == type ? 1 : 0.6)
+                            .scaleEffect(item.myInteractionType == type ? 1.2 : 1)
+                            .animation(.spring(response: 0.3), value: item.myInteractionType)
+                    }
+                    .disabled(isReacting)
+                    .accessibilityLabel("React with \(type.rawValue)")
+                }
+            }
+            
+            Spacer()
+            
+            // More reactions
+            Button {
+                showingReactions = true
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel("More reactions")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+    }
+    
+    // MARK: - Reactions Summary
+    
     private var reactionsSummary: some View {
-        HStack(spacing: -4) {
-            // Show unique reaction emojis
+        HStack(spacing: 4) {
             let uniqueTypes = Set(item.interactions.map { $0.type })
             ForEach(Array(uniqueTypes.prefix(3)), id: \.self) { type in
                 Text(type.emoji)
                     .font(.caption)
             }
             
-            Text("\(item.interactionCount)")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.leading, 4)
+            Text("\(item.interactionCount) reactions")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.primary)
         }
+        .accessibilityLabel("\(item.interactionCount) reactions")
     }
+    
+    // MARK: - Caption Section
+    
+    private var captionSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Goal completed label
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.seenGreen)
+                    .font(.caption)
+                
+                Text("Completed")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.seenGreen)
+                
+                Text(item.goal.title)
+                    .font(.caption.weight(.semibold))
+            }
+            
+            // Comment if any
+            if let comment = item.checkIn.comment, !comment.isEmpty {
+                Text(comment)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+    
+    // MARK: - Time Ago
     
     private var timeAgo: String {
         let formatter = ISO8601DateFormatter()
@@ -267,6 +347,28 @@ struct FeedItemCard: View {
         }
     }
     
+    // MARK: - Double Tap Handler
+    
+    private func handleDoubleTap() {
+        guard !isReacting else { return }
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            showDoubleTapHeart = true
+        }
+        
+        Task {
+            await addReaction(.FIRE)
+            
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            
+            withAnimation(.easeOut(duration: 0.3)) {
+                showDoubleTapHeart = false
+            }
+        }
+    }
+    
+    // MARK: - Reaction Handlers
+    
     private func addReaction(_ type: InteractionType) async {
         isReacting = true
         defer { isReacting = false }
@@ -274,16 +376,13 @@ struct FeedItemCard: View {
         do {
             _ = try await FeedService.shared.addInteraction(checkInId: item.id, type: type)
             
-            // Update local state
-            var updatedItem = item
             let newInteraction = FeedInteraction(
                 id: UUID().uuidString,
                 type: type,
-                userId: "", // Will be filled by server
+                userId: "",
                 userName: ""
             )
             
-            // This is a simplified update - in production you'd refetch
             var interactions = item.interactions
             if let existingIndex = interactions.firstIndex(where: { $0.userId == "" }) {
                 interactions[existingIndex] = newInteraction
@@ -291,8 +390,7 @@ struct FeedItemCard: View {
                 interactions.append(newInteraction)
             }
             
-            // Create updated item with new values
-            updatedItem = FeedItem(
+            let updatedItem = FeedItem(
                 id: item.id,
                 type: item.type,
                 user: item.user,
@@ -319,7 +417,6 @@ struct FeedItemCard: View {
         do {
             try await FeedService.shared.removeInteraction(checkInId: item.id)
             
-            // Update local state
             let updatedItem = FeedItem(
                 id: item.id,
                 type: item.type,
@@ -338,6 +435,17 @@ struct FeedItemCard: View {
         } catch {
             print("Remove reaction error: \(error)")
         }
+    }
+}
+
+// MARK: - Legacy Feed Item Card (for backward compatibility)
+
+struct FeedItemCard: View {
+    let item: FeedItem
+    let onUpdate: (FeedItem) -> Void
+    
+    var body: some View {
+        PhotoFeedCard(item: item, onUpdate: onUpdate)
     }
 }
 

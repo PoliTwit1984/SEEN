@@ -18,6 +18,21 @@ actor PodService {
         return try await APIClient.shared.request(path: "/pods")
     }
     
+    // MARK: - List Pods with Activity Status
+    
+    func getPodsWithStatus() async throws -> [PodWithStatus] {
+        return try await APIClient.shared.request(path: "/pods/with-status")
+    }
+    
+    // MARK: - Mark Pod as Viewed
+    
+    func markPodViewed(podId: String) async throws {
+        let _: EmptyResponse = try await APIClient.shared.request(
+            path: "/pods/\(podId)/view",
+            method: "POST"
+        )
+    }
+    
     // MARK: - Create Pod
     
     func createPod(name: String, description: String?, stakes: String?) async throws -> Pod {

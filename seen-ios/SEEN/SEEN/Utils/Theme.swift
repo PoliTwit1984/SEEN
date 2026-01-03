@@ -2,74 +2,56 @@
 //  Theme.swift
 //  SEEN
 //
-//  App-wide styling with liquid glass aesthetic
+//  App-wide styling - iOS 26 Liquid Glass compatible
 //
 
 import SwiftUI
 
 // MARK: - Brand Colors
+// Colors are now defined in Assets.xcassets with light/dark variants
+// Xcode auto-generates Color.seenGreen, Color.seenMint, etc.
+// Only define additional colors not in the asset catalog here:
 
 extension Color {
-    static let seenGreen = Color(red: 0.263, green: 0.820, blue: 0.424)
+    // Lighter variant of seenGreen (not in asset catalog)
     static let seenGreenLight = Color(red: 0.345, green: 0.878, blue: 0.506)
-    static let seenMint = Color(red: 0.4, green: 0.95, blue: 0.7)
-    static let seenPurple = Color(red: 0.6, green: 0.4, blue: 0.9)
-    static let seenBlue = Color(red: 0.3, green: 0.6, blue: 0.95)
+}
+
+// MARK: - Typography (Dynamic Type Support)
+
+extension Font {
+    // These use semantic text styles that automatically scale with Dynamic Type
+    static let seenLargeTitle = Font.largeTitle.weight(.bold)
+    static let seenTitle = Font.title.weight(.bold)
+    static let seenHeadline = Font.headline
+    static let seenSubheadline = Font.subheadline.weight(.medium)
+    static let seenBody = Font.body
+    static let seenCaption = Font.caption
 }
 
 // MARK: - Glass Background Modifier
+// Simplified for iOS 26 - will work with native .glassEffect() when available
 
 struct GlassBackground: ViewModifier {
     var cornerRadius: CGFloat = 20
-    var opacity: CGFloat = 0.7
     
     func body(content: Content) -> some View {
         content
             .background(
-                ZStack {
-                    // Frosted glass effect
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(.ultraThinMaterial)
-                    
-                    // Subtle gradient overlay
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.25),
-                                    .white.opacity(0.05)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    
-                    // Glass border
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    .white.opacity(0.6),
-                                    .white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.regularMaterial)
             )
-            .shadow(color: .black.opacity(0.1), radius: 20, y: 10)
     }
 }
 
 extension View {
-    func glassBackground(cornerRadius: CGFloat = 20, opacity: CGFloat = 0.7) -> some View {
-        modifier(GlassBackground(cornerRadius: cornerRadius, opacity: opacity))
+    func glassBackground(cornerRadius: CGFloat = 20) -> some View {
+        modifier(GlassBackground(cornerRadius: cornerRadius))
     }
 }
 
 // MARK: - Glass Card
+// Container that applies glass effect with padding
 
 struct GlassCard<Content: View>: View {
     let content: Content
@@ -88,11 +70,29 @@ struct GlassCard<Content: View>: View {
 }
 
 // MARK: - Animated Gradient Background
+// Rich, colorful background that works well behind glass elements
 
 struct AnimatedGradientBackground: View {
     @State private var animateGradient = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
+        Group {
+            if colorScheme == .dark {
+                darkBackground
+            } else {
+                lightBackground
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+                animateGradient.toggle()
+            }
+        }
+    }
+    
+    private var darkBackground: some View {
         LinearGradient(
             colors: [
                 Color(red: 0.05, green: 0.1, blue: 0.2),
@@ -102,82 +102,74 @@ struct AnimatedGradientBackground: View {
             startPoint: animateGradient ? .topLeading : .bottomLeading,
             endPoint: animateGradient ? .bottomTrailing : .topTrailing
         )
-        .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 5).repeatForever(autoreverses: true)) {
-                animateGradient.toggle()
-            }
-        }
         .overlay {
             // Subtle floating orbs for depth
             GeometryReader { geo in
                 Circle()
-                    .fill(Color.seenGreen.opacity(0.15))
+                    .fill(Color.seenGreen.opacity(0.12))
                     .blur(radius: 60)
                     .frame(width: 300, height: 300)
                     .offset(x: -50, y: animateGradient ? 100 : 200)
                 
                 Circle()
-                    .fill(Color.seenPurple.opacity(0.1))
+                    .fill(Color.seenPurple.opacity(0.08))
                     .blur(radius: 80)
                     .frame(width: 400, height: 400)
                     .offset(x: geo.size.width - 150, y: animateGradient ? 400 : 300)
+            }
+        }
+    }
+    
+    private var lightBackground: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.95, green: 0.97, blue: 1.0),
+                Color(red: 0.92, green: 0.95, blue: 0.98),
+                Color(red: 0.94, green: 0.96, blue: 0.99),
+            ],
+            startPoint: animateGradient ? .topLeading : .bottomLeading,
+            endPoint: animateGradient ? .bottomTrailing : .topTrailing
+        )
+        .overlay {
+            GeometryReader { geo in
+                Circle()
+                    .fill(Color.seenGreen.opacity(0.1))
+                    .blur(radius: 60)
+                    .frame(width: 300, height: 300)
+                    .offset(x: -50, y: animateGradient ? 100 : 200)
                 
                 Circle()
-                    .fill(Color.seenBlue.opacity(0.1))
-                    .blur(radius: 70)
-                    .frame(width: 250, height: 250)
-                    .offset(x: geo.size.width / 2, y: animateGradient ? 600 : 700)
+                    .fill(Color.seenBlue.opacity(0.08))
+                    .blur(radius: 80)
+                    .frame(width: 400, height: 400)
+                    .offset(x: geo.size.width - 150, y: animateGradient ? 400 : 300)
             }
         }
     }
 }
 
-// MARK: - Typography
-
-extension Font {
-    static let seenLargeTitle = Font.system(size: 34, weight: .bold, design: .rounded)
-    static let seenTitle = Font.system(size: 28, weight: .bold, design: .rounded)
-    static let seenHeadline = Font.system(size: 20, weight: .semibold, design: .rounded)
-    static let seenSubheadline = Font.system(size: 16, weight: .medium, design: .rounded)
-    static let seenBody = Font.system(size: 16, weight: .regular, design: .default)
-    static let seenCaption = Font.system(size: 13, weight: .regular, design: .default)
-}
-
-// MARK: - Glass Button Styles
+// MARK: - Button Styles
 
 struct GlassPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) var isEnabled
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.seenHeadline)
-            .foregroundColor(.white)
+            .font(.headline)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 44) // Accessibility: minimum tap target
             .padding(.vertical, 16)
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            LinearGradient(
-                                colors: isEnabled ? [.seenGreen, .seenGreenLight] : [.gray, .gray.opacity(0.8)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: isEnabled ? [.seenGreen, .seenGreenLight] : [.gray, .gray.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                    
-                    // Glass shine
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            LinearGradient(
-                                colors: [.white.opacity(0.3), .clear],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
-                        )
-                }
+                    )
             )
-            .shadow(color: .seenGreen.opacity(0.4), radius: 12, y: 6)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
@@ -186,9 +178,10 @@ struct GlassPrimaryButtonStyle: ButtonStyle {
 struct GlassSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.seenSubheadline)
-            .foregroundColor(.white)
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.primary)
             .frame(maxWidth: .infinity)
+            .frame(minHeight: 44) // Accessibility: minimum tap target
             .padding(.vertical, 14)
             .glassBackground(cornerRadius: 14)
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
@@ -222,12 +215,14 @@ struct StreakBadge: View {
                 )
             Text("\(count)")
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
         }
         .font(.system(size: size * 0.6))
         .padding(.horizontal, size * 0.5)
         .padding(.vertical, size * 0.25)
         .glassBackground(cornerRadius: size)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(count) day streak")
     }
 }
 
@@ -242,11 +237,11 @@ struct GlassTextField: View {
         HStack(spacing: 12) {
             if let icon = icon {
                 Image(systemName: icon)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(.secondary)
             }
             
             TextField(placeholder, text: $text)
-                .foregroundStyle(.white)
+                .foregroundStyle(.primary)
                 .tint(.seenGreen)
         }
         .padding()
@@ -265,32 +260,26 @@ struct EmptyStateView: View {
     
     var body: some View {
         VStack(spacing: 24) {
-            // Glowing icon
+            // Icon
             ZStack {
                 Circle()
-                    .fill(Color.seenGreen.opacity(0.2))
-                    .blur(radius: 30)
-                    .frame(width: 120, height: 120)
+                    .fill(Color.seenGreen.opacity(0.15))
+                    .frame(width: 100, height: 100)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 50))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, .white.opacity(0.7)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .font(.system(size: 44))
+                    .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
             
             VStack(spacing: 8) {
                 Text(title)
-                    .font(.seenHeadline)
-                    .foregroundStyle(.white)
+                    .font(.title2)
+                    .fontWeight(.semibold)
                 
                 Text(message)
-                    .font(.seenBody)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.body)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
@@ -303,6 +292,7 @@ struct EmptyStateView: View {
             }
         }
         .padding()
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -310,47 +300,18 @@ struct EmptyStateView: View {
 
 struct LoadingView: View {
     var message: String = "Loading..."
-    @State private var isAnimating = false
     
     var body: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.2), lineWidth: 4)
-                    .frame(width: 50, height: 50)
-                
-                Circle()
-                    .trim(from: 0, to: 0.7)
-                    .stroke(
-                        LinearGradient(
-                            colors: [.seenGreen, .seenMint],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                    )
-                    .frame(width: 50, height: 50)
-                    .rotationEffect(.degrees(isAnimating ? 360 : 0))
-                    .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: isAnimating)
-            }
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.2)
             
             Text(message)
-                .font(.seenCaption)
-                .foregroundStyle(.white.opacity(0.6))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .onAppear { isAnimating = true }
-    }
-}
-
-// MARK: - Glass Navigation Title
-
-struct GlassNavigationTitle: View {
-    let title: String
-    
-    var body: some View {
-        Text(title)
-            .font(.seenLargeTitle)
-            .foregroundStyle(.white)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(message)
     }
 }
 
@@ -363,11 +324,10 @@ struct GlassNavigationTitle: View {
                 GlassCard {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Glass Card")
-                            .font(.seenHeadline)
-                            .foregroundStyle(.white)
-                        Text("This is a liquid glass card with frosted effect")
-                            .font(.seenBody)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.headline)
+                        Text("This is a glass card with frosted effect")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 

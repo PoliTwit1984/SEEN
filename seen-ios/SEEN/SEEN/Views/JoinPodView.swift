@@ -2,7 +2,7 @@
 //  JoinPodView.swift
 //  SEEN
 //
-//  Enter invite code to join a pod
+//  Enter invite code to join a pod - HIG Compliant
 //
 
 import SwiftUI
@@ -52,6 +52,8 @@ struct JoinPodView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
                     .padding(.horizontal, 48)
+                    .accessibilityLabel("Invite code")
+                    .accessibilityHint("Enter the 6-character invite code")
                     .onChange(of: inviteCode) { _, newValue in
                         // Limit to 6 characters
                         if newValue.count > 6 {
@@ -71,6 +73,7 @@ struct JoinPodView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
+                .frame(minHeight: 44) // Accessibility: 44pt min
                 .padding()
                 .background(isValid ? Color.accentColor : Color.gray)
                 .foregroundStyle(.white)
@@ -78,6 +81,8 @@ struct JoinPodView: View {
                 .cornerRadius(12)
                 .padding(.horizontal, 24)
                 .disabled(!isValid || isLoading)
+                .accessibilityLabel("Join pod")
+                .accessibilityHint(isValid ? "Double tap to join with this invite code" : "Enter a valid 6-character code first")
                 
                 Spacer()
             }

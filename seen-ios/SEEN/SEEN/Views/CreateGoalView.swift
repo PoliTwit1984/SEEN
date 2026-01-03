@@ -152,7 +152,7 @@ struct CreateGoalView: View {
                     Text(day.initial)
                         .font(.caption)
                         .fontWeight(.medium)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 44, height: 44) // Accessibility: 44pt min
                         .background(
                             selectedDays.contains(day.rawValue)
                                 ? Color.accentColor
@@ -166,9 +166,13 @@ struct CreateGoalView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(day.shortName)
+                .accessibilityAddTraits(selectedDays.contains(day.rawValue) ? .isSelected : [])
             }
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Select days")
     }
     
     @ViewBuilder

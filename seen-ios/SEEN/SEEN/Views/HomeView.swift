@@ -2,7 +2,7 @@
 //  HomeView.swift
 //  SEEN
 //
-//  Main home view with pod list - Liquid Glass Design
+//  Main home view with pod list - HIG Compliant
 //
 
 import SwiftUI
@@ -18,27 +18,17 @@ struct HomeView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                AnimatedGradientBackground()
-                
-                Group {
-                    if isLoading && pods.isEmpty {
-                        LoadingView(message: "Loading pods...")
-                    } else if pods.isEmpty {
-                        emptyStateView
-                    } else {
-                        podListView
-                    }
+            Group {
+                if isLoading && pods.isEmpty {
+                    LoadingView(message: "Loading pods...")
+                } else if pods.isEmpty {
+                    emptyStateView
+                } else {
+                    podListView
                 }
             }
-            .navigationTitle("")
+            .navigationTitle("My Pods")
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("My Pods")
-                        .font(.seenHeadline)
-                        .foregroundStyle(.white)
-                }
-                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { showingCreatePod = true }) {
@@ -50,11 +40,11 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(.white)
                     }
+                    .accessibilityLabel("Add pod")
+                    .accessibilityHint("Double tap to create or join a pod")
                 }
             }
-            .toolbarBackground(.hidden, for: .navigationBar)
             .refreshable {
                 await loadPods()
             }
@@ -104,17 +94,16 @@ struct HomeView: View {
     }
     
     private var podListView: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(pods) { pod in
-                    NavigationLink(destination: PodDetailView(podId: pod.id)) {
-                        PodCard(pod: pod)
-                    }
-                    .buttonStyle(.plain)
+        List {
+            ForEach(pods) { pod in
+                NavigationLink(destination: PodDetailView(podId: pod.id)) {
+                    PodRow(pod: pod)
                 }
+                .accessibilityLabel("\(pod.name), \(pod.memberCount) of \(pod.maxMembers) members")
+                .accessibilityHint("Double tap to view pod details")
             }
-            .padding()
         }
+        .listStyle(.insetGrouped)
     }
     
     private func loadPods() async {
@@ -131,26 +120,16 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Pod Card (Glass Style)
+// MARK: - Pod Row
 
-struct PodCard: View {
+struct PodRow: View {
     let pod: PodListItem
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(pod.name)
-                        .font(.seenHeadline)
-                        .foregroundStyle(.white)
-                    
-                    if let description = pod.description {
-                        Text(description)
-                            .font(.seenCaption)
-                            .foregroundStyle(.white.opacity(0.6))
-                            .lineLimit(2)
-                    }
-                }
+                Text(pod.name)
+                    .font(.headline)
                 
                 Spacer()
                 
@@ -161,47 +140,43 @@ struct PodCard: View {
                     Text("\(pod.memberCount)/\(pod.maxMembers)")
                         .font(.caption.weight(.medium))
                 }
-                .foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(.white.opacity(0.1))
-                )
+                .foregroundStyle(.secondary)
             }
             
-            // Stakes if any
-            if let stakes = pod.stakes, !stakes.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "flag.fill")
-                        .foregroundStyle(.orange)
-                    Text(stakes)
-                        .font(.seenCaption)
-                        .foregroundStyle(.white.opacity(0.8))
-                }
+            if let description = pod.description, !description.isEmpty {
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             
-            // Role badge
             HStack {
-                Text(pod.role.rawValue)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(pod.role == .OWNER ? Color.seenGreen : .white.opacity(0.7))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(pod.role == .OWNER ? Color.seenGreen.opacity(0.2) : .white.opacity(0.1))
-                    )
+                // Stakes if any
+                if let stakes = pod.stakes, !stakes.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flag.fill")
+                            .foregroundStyle(.orange)
+                        Text(stakes)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 
                 Spacer()
                 
-                Image(systemName: "chevron.right")
+                // Role badge
+                Text(pod.role.rawValue)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .foregroundStyle(pod.role == .OWNER ? Color.seenGreen : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(pod.role == .OWNER ? Color.seenGreen.opacity(0.15) : Color.secondary.opacity(0.1))
+                    )
             }
         }
-        .padding(20)
-        .glassBackground()
+        .padding(.vertical, 4)
     }
 }
 

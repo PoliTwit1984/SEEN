@@ -21,13 +21,16 @@ model User {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
-  ownedPods     Pod[]          @relation("PodOwner")
-  memberships   PodMember[]
-  goals         Goal[]
-  checkIns      CheckIn[]
-  interactions  Interaction[]
-  deviceTokens  DeviceToken[]
+  refreshTokens  RefreshToken[]
+  ownedPods      Pod[]          @relation("PodOwner")
+  memberships    PodMember[]
+  goals          Goal[]
+  checkIns       CheckIn[]
+  interactions   Interaction[]
+  deviceTokens   DeviceToken[]
+  authoredPosts  PodPost[]      @relation("PostAuthor")
+  targetedPosts  PodPost[]      @relation("PostTarget")
+  goalComments   GoalComment[]
 
   @@map("users")
 }
@@ -64,6 +67,7 @@ model Pod {
   owner   User        @relation("PodOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members PodMember[]
   goals   Goal[]
+  posts   PodPost[]
 
   @@index([ownerId])
   @@index([inviteCode])
@@ -125,9 +129,10 @@ model Goal {
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 
-  pod      Pod       @relation(fields: [podId], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pod      Pod           @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkIns CheckIn[]
+  comments GoalComment[]
 
   @@index([podId])
   @@index([userId])
@@ -213,4 +218,72 @@ model WaitlistEntry {
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("waitlist_entries")
+}
+
+// ============== POD VIEWS (Activity Tracking) ==============
+
+model PodView {
+  id        String   @id @default(uuid())
+  podId     String   @map("pod_id")
+  userId    String   @map("user_id")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([podId, userId])
+  @@index([userId])
+  @@map("pod_views")
+}
+
+// ============== POD POSTS (Encouragement Feed) ==============
+
+enum PostType {
+  ENCOURAGEMENT
+  NUDGE
+  CELEBRATION
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+}
+
+model PodPost {
+  id           String     @id @default(uuid())
+  podId        String     @map("pod_id")
+  userId       String     @map("user_id")
+  type         PostType
+  content      String?
+  mediaUrl     String?    @map("media_url")
+  mediaType    MediaType? @map("media_type")
+  targetUserId String?    @map("target_user_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  pod    Pod   @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user   User  @relation("PostAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  target User? @relation("PostTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([podId])
+  @@index([userId])
+  @@index([targetUserId])
+  @@map("pod_posts")
+}
+
+// ============== GOAL COMMENTS (With Media) ==============
+
+model GoalComment {
+  id        String     @id @default(uuid())
+  goalId    String     @map("goal_id")
+  userId    String     @map("user_id")
+  content   String?
+  mediaUrl  String?    @map("media_url")
+  mediaType MediaType? @map("media_type")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([userId])
+  @@map("goal_comments")
 }
