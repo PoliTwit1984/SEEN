@@ -13,6 +13,7 @@ router.use(authMiddleware);
 router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { goalId, status, comment, proofUrl, clientTimestamp } = req.body;
+    console.log('📥 Check-in request:', { goalId, status, hasComment: !!comment, hasProofUrl: !!proofUrl });
 
     // Validation
     if (!goalId || typeof goalId !== 'string') {
@@ -94,19 +95,21 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
       select: { currentStreak: true, longestStreak: true },
     });
 
+    const responseData = {
+      id: checkIn.id,
+      goalId: checkIn.goalId,
+      date: checkIn.date,
+      status: checkIn.status,
+      comment: checkIn.comment,
+      proofUrl: checkIn.proofUrl,
+      createdAt: checkIn.createdAt,
+      currentStreak: updatedGoal?.currentStreak ?? 0,
+      longestStreak: updatedGoal?.longestStreak ?? 0,
+    };
+    console.log('✅ Check-in created:', JSON.stringify(responseData, null, 2));
     res.status(201).json({
       success: true,
-      data: {
-        id: checkIn.id,
-        goalId: checkIn.goalId,
-        date: checkIn.date,
-        status: checkIn.status,
-        comment: checkIn.comment,
-        proofUrl: checkIn.proofUrl,
-        createdAt: checkIn.createdAt,
-        currentStreak: updatedGoal?.currentStreak ?? 0,
-        longestStreak: updatedGoal?.longestStreak ?? 0,
-      },
+      data: responseData,
     });
   } catch (error) {
     if (
