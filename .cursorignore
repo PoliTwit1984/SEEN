@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.build/
+DerivedData/
+
+# iOS/Xcode
+*.xcodeproj/
+*.xcworkspace/
+*.pbxproj
+*.xcuserstatea
+xcuserdata/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Environment & secrets
+.env
+.env.*
+*.p8
+*.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# Generated
+*.generated.*
+prisma/migrations/*/migration_lock.toml
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/

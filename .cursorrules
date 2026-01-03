@@ -1,0 +1,100 @@
+# SEEN - Cursor Rules
+
+## Project Overview
+SEEN is an accountability app with an iOS client (SwiftUI) and Node.js backend (Express + TypeScript). Read `spec.md` for full specification and `mvp.md` for phased build prompts.
+
+## Source of Truth
+- `spec.md` - API contracts, data models, business logic
+- `mvp.md` - Build phases with specific prompts
+- When in doubt, check these files before making assumptions
+
+## System Invariants (Never Violate)
+1. Missed check-ins are system-generated only—users cannot mark themselves as missed
+2. Deadlines use goal.timezone, not device/user current timezone
+3. All goal state changes must create feed-visible events
+4. Push notifications are critical path, not optional
+5. Event history is immutable—recovery doesn't erase misses
+
+## Backend Rules (seen-backend/)
+
+### Stack
+- Node.js 20, Express, TypeScript (strict mode)
+- Prisma ORM with PostgreSQL
+- BullMQ + Redis for job queues
+- Zod for validation
+
+### Patterns
+- All responses use envelope: `{ success: true, data: {} }` or `{ success: false, error: { code, message } }`
+- Use custom error classes (ValidationError, NotFoundError, etc.)
+- All routes require authMiddleware except /auth/* and /health
+- Timezone operations use Luxon, never raw Date math
+- Database columns use snake_case, TypeScript uses camelCase
+
+### File Structure
+```
+src/
+  index.ts          # Express app setup
+  routes/           # Route handlers
+  middleware/       # Auth, validation, rate limiting
+  lib/              # Shared utilities (jwt, storage, timezone, etc.)
+  workers/          # BullMQ job processors
+```
+
+### Don'ts
+- Don't use `any` type—always define interfaces
+- Don't inline SQL—use Prisma
+- Don't trust client timestamps older than 6 hours
+- Don't return stack traces in production errors
+
+## iOS Rules (seen-ios/)
+
+### Stack
+- SwiftUI, iOS 17+
+- async/await with URLSession
+- SwiftData for local caching
+- AuthenticationServices for Sign in with Apple
+
+### Patterns
+- Services handle API calls, Views handle UI
+- Use @Published and ObservableObject for state
+- Store tokens in Keychain, never UserDefaults
+- All API responses decode via Codable structs
+- Handle 401 by refreshing token, retry once, then force logout
+
+### File Structure
+```
+SEEN/
+  App/              # App entry, navigation
+  Views/            # SwiftUI views
+  Components/       # Reusable UI components
+  Models/           # Codable structs
+  Services/         # API clients
+  Utils/            # Helpers (Keychain, NetworkMonitor, etc.)
+```
+
+### Don'ts
+- Don't force unwrap optionals—use guard/if-let
+- Don't block main thread—all network calls are async
+- Don't show raw API errors to users—map to friendly messages
+- Don't use storyboards—pure SwiftUI
+
+## Naming Conventions
+
+### Backend
+- Routes: `GET /pods/:podId/goals` (plural nouns, camelCase params)
+- Files: `camelCase.ts`
+- Classes/Types: `PascalCase`
+- Variables/Functions: `camelCase`
+
+### iOS
+- Files: `PascalCase.swift`
+- Views: `PodDetailView`, `CreateGoalView`
+- Services: `AuthService`, `PodService`
+- Models: `Pod`, `Goal`, `CheckIn`
+
+## When Generating Code
+1. Check which phase we're in (ask if unclear)
+2. Read the relevant section of spec.md for exact API contracts
+3. Follow existing patterns in the codebase
+4. Include error handling—don't just handle happy path
+5. Add brief comments for non-obvious logic

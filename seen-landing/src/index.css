@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif";
+}
+
+:root {
+  background-color: #000;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Liquid Glass Background Animation */
+.liquid-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: #000;
+  overflow: hidden;
+}
+
+.blob {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  filter: blur(100px);
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: move 20s infinite alternate;
+}
+
+.blob-2 {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  width: 500px;
+  height: 500px;
+  right: -100px;
+  top: -100px;
+  animation-duration: 25s;
+  animation-delay: -5s;
+}
+
+.blob-3 {
+  background: linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%);
+  width: 700px;
+  height: 700px;
+  left: -200px;
+  bottom: -200px;
+  animation-duration: 30s;
+  animation-delay: -10s;
+}
+
+@keyframes move {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(100px, 100px) scale(1.2); }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.liquid-text {
+  background: linear-gradient(to bottom, #fff 0%, rgba(255, 255, 255, 0.5) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

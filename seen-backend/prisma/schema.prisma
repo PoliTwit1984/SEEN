@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============== USERS ==============
+
+model User {
+  id          String   @id @default(uuid())
+  appleId     String?  @unique @map("apple_id")
+  email       String?  @unique
+  name        String
+  avatarUrl   String?  @map("avatar_url")
+  timezone    String   @default("America/New_York")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  ownedPods     Pod[]          @relation("PodOwner")
+  memberships   PodMember[]
+  goals         Goal[]
+  checkIns      CheckIn[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ============== PODS ==============
+
+model Pod {
+  id          String   @id @default(uuid())
+  ownerId     String   @map("owner_id")
+  name        String
+  description String?
+  stakes      String?
+  maxMembers  Int      @default(8) @map("max_members")
+  isPrivate   Boolean  @default(true) @map("is_private")
+  inviteCode  String   @unique @map("invite_code")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner   User        @relation("PodOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members PodMember[]
+  goals   Goal[]
+
+  @@index([ownerId])
+  @@index([inviteCode])
+  @@map("pods")
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  LEFT
+  KICKED
+}
+
+model PodMember {
+  id       String       @id @default(uuid())
+  podId    String       @map("pod_id")
+  userId   String       @map("user_id")
+  role     MemberRole   @default(MEMBER)
+  status   MemberStatus @default(ACTIVE)
+  joinedAt DateTime     @default(now()) @map("joined_at")
+
+  pod  Pod  @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([podId, userId])
+  @@index([userId])
+  @@map("pod_members")
+}
+
+// ============== GOALS (Phase 4) ==============
+
+enum FrequencyType {
+  DAILY
+  WEEKLY
+  SPECIFIC_DAYS
+}
+
+model Goal {
+  id            String        @id @default(uuid())
+  podId         String        @map("pod_id")
+  userId        String        @map("user_id")
+  title         String
+  description   String?
+  frequencyType FrequencyType @default(DAILY) @map("frequency_type")
+  frequencyDays Int[]         @map("frequency_days")
+  reminderTime  String?       @map("reminder_time")
+  deadlineTime  String        @default("23:59") @map("deadline_time")
+  timezone      String
+  requiresProof Boolean       @default(false) @map("requires_proof")
+  startDate     DateTime      @map("start_date")
+  endDate       DateTime?     @map("end_date")
+  currentStreak Int           @default(0) @map("current_streak")
+  longestStreak Int           @default(0) @map("longest_streak")
+  isArchived    Boolean       @default(false) @map("is_archived")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  pod      Pod       @relation(fields: [podId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns CheckIn[]
+
+  @@index([podId])
+  @@index([userId])
+  @@map("goals")
+}
+
+// ============== CHECK-INS (Phase 5) ==============
+
+enum CheckInStatus {
+  COMPLETED
+  MISSED
+  SKIPPED
+}
+
+model CheckIn {
+  id              String        @id @default(uuid())
+  goalId          String        @map("goal_id")
+  userId          String        @map("user_id")
+  date            DateTime      @db.Date
+  status          CheckInStatus
+  proofUrl        String?       @map("proof_url")
+  comment         String?
+  clientTimestamp DateTime?     @map("client_timestamp")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, date])
+  @@index([userId])
+  @@map("check_ins")
+}
+
+// ============== WAITLIST ==============
+
+model WaitlistEntry {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  referralCode String?  @map("referral_code")
+  priority     Int?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("waitlist_entries")
+}
