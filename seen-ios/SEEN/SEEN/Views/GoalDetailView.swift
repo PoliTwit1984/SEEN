@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import PhotosUI
 
 struct GoalDetailView: View {
     let goalId: String
@@ -308,16 +307,23 @@ struct CheckInWithProofView: View {
     let onSuccess: (CheckInResponse) -> Void
     
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedPhoto: PhotosPickerItem?
-    @State private var photoData: Data?
+    @State private var capturedImage: UIImage?
     @State private var comment = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var showingCamera = false
+    @State private var showingPhotoLibrary = false
+    @State private var showingSourcePicker = false
+    
+    private var hasPhoto: Bool { capturedImage != nil }
     
     var body: some View {
         NavigationStack {
             Form {
                 photoSection
+                if hasPhoto {
+                    previewSection
+                }
                 commentSection
             }
             .navigationTitle("Check In")
@@ -330,8 +336,21 @@ struct CheckInWithProofView: View {
                     submitButton
                 }
             }
-            .onChange(of: selectedPhoto) { _, newValue in
-                loadPhoto(from: newValue)
+            .confirmationDialog("Add Photo", isPresented: $showingSourcePicker) {
+                Button("Take Photo") { showingCamera = true }
+                Button("Choose from Library") { showingPhotoLibrary = true }
+                Button("Cancel", role: .cancel) { }
+            }
+            .fullScreenCover(isPresented: $showingCamera) {
+                ImagePicker(sourceType: .camera) { image in
+                    capturedImage = image
+                }
+                .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showingPhotoLibrary) {
+                ImagePicker(sourceType: .photoLibrary) { image in
+                    capturedImage = image
+                }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") { errorMessage = nil }
@@ -343,9 +362,23 @@ struct CheckInWithProofView: View {
     
     private var photoSection: some View {
         Section {
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                photoPickerLabel
+            Button {
+                showingSourcePicker = true
+            } label: {
+                HStack {
+                    Image(systemName: hasPhoto ? "checkmark.circle.fill" : "camera.fill")
+                        .foregroundStyle(hasPhoto ? .green : .secondary)
+                    Text(hasPhoto ? "Photo captured" : "Add Photo Proof")
+                    Spacer()
+                    if hasPhoto {
+                        Text("Change")
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
+            .tint(.primary)
         } header: {
             Text("Photo Proof")
         } footer: {
@@ -354,23 +387,16 @@ struct CheckInWithProofView: View {
     }
     
     @ViewBuilder
-    private var photoPickerLabel: some View {
-        if photoData != nil {
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text("Photo selected")
-                Spacer()
-                Text("Change")
-            }
-        } else {
-            HStack {
-                Image(systemName: "camera.fill")
-                    .foregroundStyle(.secondary)
-                Text("Select Photo Proof")
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
+    private var previewSection: some View {
+        Section {
+            if let image = capturedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 200)
+                    .clipped()
+                    .cornerRadius(8)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
         }
     }
@@ -392,21 +418,16 @@ struct CheckInWithProofView: View {
             Button("Submit") {
                 Task { await submitCheckIn() }
             }
-            .disabled(photoData == nil)
-        }
-    }
-    
-    private func loadPhoto(from item: PhotosPickerItem?) {
-        Task {
-            if let data = try? await item?.loadTransferable(type: Data.self) {
-                photoData = data
-            }
+            .disabled(!hasPhoto)
         }
     }
     
     private func submitCheckIn() async {
         isLoading = true
         defer { isLoading = false }
+        
+        // TODO: Upload capturedImage to storage and get URL
+        // For MVP, we'll skip the actual upload
         
         do {
             let response = try await CheckInService.shared.checkIn(
