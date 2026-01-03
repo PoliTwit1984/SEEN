@@ -9,6 +9,26 @@ import Foundation
 import AuthenticationServices
 import SwiftUI
 import Observation
+import UIKit
+
+// MARK: - Avatar Upload Models (must be outside @MainActor class)
+
+struct AvatarPresignResponse: Codable, Sendable {
+    let uploadUrl: String
+    let publicUrl: String
+    let key: String
+    let configured: Bool
+}
+
+struct AvatarPresignRequest: Codable, Sendable {
+    let fileType: String
+}
+
+struct UpdateProfileRequest: Codable, Sendable {
+    let name: String?
+    let timezone: String?
+    let avatarUrl: String?
+}
 
 @Observable
 @MainActor
@@ -97,6 +117,91 @@ final class AuthService {
                 logout()
             }
         }
+    }
+    
+    // MARK: - Fetch User Stats
+    
+    func fetchUserStats() async -> UserStats? {
+        do {
+            let stats: UserStats = try await APIClient.shared.request(path: "/users/me/stats")
+            return stats
+        } catch {
+            print("Failed to fetch user stats: \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - Update Profile
+    
+    func updateProfile(name: String? = nil, timezone: String? = nil, avatarUrl: String? = nil) async throws {
+        let request = UpdateProfileRequest(name: name, timezone: timezone, avatarUrl: avatarUrl)
+        let user: User = try await APIClient.shared.request(
+            path: "/users/me",
+            method: "PATCH",
+            body: request
+        )
+        currentUser = user
+    }
+    
+    // MARK: - Upload Avatar
+    
+    func uploadAvatar(image: UIImage) async throws -> String {
+        // 1. Get presigned URL
+        let presignRequest = AvatarPresignRequest(fileType: "jpg")
+        
+        let presignResponse: AvatarPresignResponse
+        do {
+            presignResponse = try await APIClient.shared.request(
+                path: "/uploads/avatar/presign",
+                method: "POST",
+                body: presignRequest
+            )
+            print("✅ Presign response: configured=\(presignResponse.configured)")
+        } catch {
+            print("❌ Presign error: \(error)")
+            throw error
+        }
+        
+        // 2. If not configured, just update profile with mock URL
+        if !presignResponse.configured {
+            print("⚠️ Storage not configured, using mock URL")
+            try await updateProfile(avatarUrl: presignResponse.publicUrl)
+            return presignResponse.publicUrl
+        }
+        
+        // 3. Compress image
+        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+            throw APIError.serverError("Failed to compress image")
+        }
+        
+        // 4. Upload to R2
+        guard let uploadURL = URL(string: presignResponse.uploadUrl) else {
+            throw APIError.serverError("Invalid upload URL")
+        }
+        
+        var uploadRequest = URLRequest(url: uploadURL)
+        uploadRequest.httpMethod = "PUT"
+        uploadRequest.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        uploadRequest.httpBody = imageData
+        
+        let (_, response) = try await URLSession.shared.data(for: uploadRequest)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError("Failed to upload image")
+        }
+        
+        // 5. Update user profile with new avatar URL
+        print("✅ Upload complete, updating profile with URL: \(presignResponse.publicUrl)")
+        do {
+            try await updateProfile(avatarUrl: presignResponse.publicUrl)
+            print("✅ Profile updated successfully")
+        } catch {
+            print("❌ Profile update error: \(error)")
+            throw error
+        }
+        
+        return presignResponse.publicUrl
     }
     
     // MARK: - Logout

@@ -71,6 +71,44 @@ export async function generateUploadUrl(
 }
 
 /**
+ * Generate a presigned URL for uploading an avatar to R2
+ */
+export async function generateAvatarUploadUrl(
+  userId: string,
+  fileExtension: string = 'jpg'
+): Promise<PresignedUploadResult> {
+  const s3 = getS3Client();
+
+  if (!s3) {
+    throw new Error('Storage not configured');
+  }
+
+  // Generate unique key: avatars/{userId}/{timestamp}.{ext}
+  const timestamp = Date.now();
+  const key = `avatars/${userId}/${timestamp}.${fileExtension}`;
+
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    ContentType: `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`,
+  });
+
+  // URL expires in 5 minutes
+  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+
+  // Public URL for accessing the file after upload
+  const publicUrl = R2_PUBLIC_URL
+    ? `${R2_PUBLIC_URL}/${key}`
+    : `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+
+  return {
+    uploadUrl,
+    publicUrl,
+    key,
+  };
+}
+
+/**
  * Generate a presigned URL for viewing a private file
  */
 export async function generateViewUrl(key: string): Promise<string> {

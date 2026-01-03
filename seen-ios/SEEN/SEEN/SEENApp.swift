@@ -15,6 +15,7 @@ struct SEENApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.dark) // Force dark mode
                 .task {
                     await NotificationService.shared.checkAuthorizationStatus()
                 }

@@ -122,14 +122,12 @@ struct PodDashboardView: View {
     private func loadDashboard() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             dashboard = try await PostService.shared.getPodDashboard(podId: podId)
-        } catch let error as APIError {
-            errorMessage = error.localizedDescription
         } catch {
+            print("Failed to load dashboard: \(error)")
             errorMessage = "Failed to load dashboard"
-            print("Load dashboard error: \(error)")
         }
     }
     
@@ -208,7 +206,7 @@ struct PodFeedSection: View {
     private func loadPosts() async {
         isLoading = true
         defer { isLoading = false }
-        
+
         do {
             let response = try await PostService.shared.getPodPosts(podId: podId)
             posts = response.posts

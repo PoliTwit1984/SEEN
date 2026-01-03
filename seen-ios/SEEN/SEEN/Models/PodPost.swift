@@ -48,6 +48,8 @@ struct PodPost: Codable, Identifiable {
     let mediaType: MediaType?
     let author: PostAuthor
     let target: PostAuthor?
+    let podId: String?
+    let podName: String?
     let createdAt: String
     
     var createdAtDate: Date? {
@@ -109,5 +111,12 @@ struct PostsResponse: Codable {
 
 struct CommentsResponse: Codable {
     let comments: [GoalComment]
+    let nextCursor: String?
+}
+
+// MARK: - Unified Feed Response
+
+struct UnifiedFeedResponse: Codable {
+    let items: [PodPost]
     let nextCursor: String?
 }

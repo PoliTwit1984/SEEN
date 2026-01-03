@@ -183,6 +183,11 @@ actor APIClient {
         }
         
         do {
+            // Debug: print raw response
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📦 Raw API response for \(path): \(responseString.prefix(500))")
+            }
+            
             let apiResponse = try JSONDecoder().decode(APIResponse<T>.self, from: data)
             
             if apiResponse.success, let responseData = apiResponse.data {
@@ -195,6 +200,7 @@ actor APIClient {
         } catch let error as APIError {
             throw error
         } catch {
+            print("❌ Decoding error for \(path): \(error)")
             throw APIError.decodingError(error)
         }
     }

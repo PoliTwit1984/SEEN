@@ -2,18 +2,19 @@
 //  MainTabView.swift
 //  SEEN
 //
-//  Main tab navigation - Pod-centric design with dashboard
+//  Main tab navigation - Pod Stories with Unified Feed
 //
 
 import SwiftUI
+import UIKit
 
 struct MainTabView: View {
     var authService: AuthService
     
     var body: some View {
         TabView {
-            Tab("Pods", systemImage: "person.3.fill") {
-                PodSelectorView()
+            Tab("Feed", systemImage: "house.fill") {
+                UnifiedFeedView()
             }
             
             Tab("Profile", systemImage: "person.circle.fill") {
@@ -24,33 +25,109 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Pod Selector View (Home)
+// MARK: - Unified Feed View (Home)
 
-struct PodSelectorView: View {
+struct UnifiedFeedView: View {
     @State private var pods: [PodListItem] = []
-    @State private var selectedPodId: String?
+    @State private var podRings: [PodRingData] = []
+    @State private var selectedPodId: String = "all"
+    @State private var feedPosts: [PodPost] = []
     @State private var isLoading = true
+    @State private var isLoadingMore = false
     @State private var errorMessage: String?
+    @State private var nextCursor: String?
     @State private var showingCreatePod = false
     @State private var showingJoinPod = false
+    @State private var showingCheckIn = false
+    @State private var showingCreatePost = false
+    @State private var showingPodDashboard = false
+    @State private var showingActionSheet = false
+    @State private var useMockData = false // For demo purposes
+    
+    // Selected pod info
+    var selectedPod: PodRingData? {
+        podRings.first { $0.id == selectedPodId }
+    }
+    
+    var selectedPodItem: PodListItem? {
+        pods.first { $0.id == selectedPodId }
+    }
+    
+    // Filtered posts based on selection
+    var filteredPosts: [PodPost] {
+        if selectedPodId == "all" {
+            return feedPosts
+        } else {
+            return feedPosts.filter { $0.podId == selectedPodId }
+        }
+    }
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if isLoading && pods.isEmpty {
-                    Spacer()
-                    ProgressView("Loading pods...")
-                    Spacer()
-                } else if pods.isEmpty {
-                    emptyState
-                } else {
-                    // Pod selector tabs
-                    podSelectorTabs
-                    
-                    // Selected pod dashboard
-                    if let podId = selectedPodId {
-                        PodDashboardView(podId: podId)
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    if isLoading && pods.isEmpty {
+                        Spacer()
+                        ProgressView("Loading...")
+                        Spacer()
+                    } else if pods.isEmpty {
+                        emptyState
+                    } else {
+                        // Pod rings at top (Instagram stories style)
+                        PodRingsScrollView(
+                            pods: podRings,
+                            selectedPodId: $selectedPodId
+                        )
+                        
+                        // Pod header when specific pod is selected
+                        if selectedPodId != "all", let pod = selectedPod, let podItem = selectedPodItem {
+                            PodHeaderView(
+                                pod: pod,
+                                podItem: podItem,
+                                onViewDetails: { showingPodDashboard = true }
+                            )
+                        }
+                        
+                        Divider()
+                        
+                        // Unified feed
+                        if filteredPosts.isEmpty && !isLoading {
+                            emptyFeedState
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 16) {
+                                    ForEach(filteredPosts) { post in
+                                        UnifiedPostCard(post: post)
+                                    }
+                                    
+                                    // Load more indicator
+                                    if isLoadingMore {
+                                        ProgressView()
+                                            .padding()
+                                    } else if nextCursor != nil && selectedPodId == "all" {
+                                        Button("Load More") {
+                                            Task { await loadMorePosts() }
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundStyle(.seenGreen)
+                                        .padding()
+                                    }
+                                }
+                                .padding(.vertical)
+                                .padding(.bottom, 80) // Space for FAB
+                            }
+                        }
                     }
+                }
+                
+                // Floating Action Button
+                if !pods.isEmpty {
+                    FloatingActionButton(
+                        onCheckIn: { showingCheckIn = true },
+                        onEncourage: { showingCreatePost = true }
+                    )
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
                 }
             }
             .navigationTitle("SEEN")
@@ -75,21 +152,38 @@ struct PodSelectorView: View {
                 }
             }
             .task {
-                await loadPods()
+                await loadData()
             }
             .refreshable {
-                await loadPods()
+                await loadData()
             }
             .sheet(isPresented: $showingCreatePod) {
                 CreatePodView { newPod in
-                    Task { await loadPods() }
+                    Task { await loadData() }
                     selectedPodId = newPod.id
                 }
             }
             .sheet(isPresented: $showingJoinPod) {
                 JoinPodView { joinedPod in
-                    Task { await loadPods() }
+                    Task { await loadData() }
                     selectedPodId = joinedPod.id
+                }
+            }
+            .sheet(isPresented: $showingCheckIn) {
+                CheckInSelectionView(
+                    podId: selectedPodId == "all" ? nil : selectedPodId,
+                    onComplete: { Task { await loadData() } }
+                )
+            }
+            .sheet(isPresented: $showingCreatePost) {
+                CreateEncouragementView(
+                    podId: selectedPodId == "all" ? pods.first?.id : selectedPodId,
+                    onComplete: { Task { await loadData() } }
+                )
+            }
+            .sheet(isPresented: $showingPodDashboard) {
+                if let podId = selectedPodId != "all" ? selectedPodId : nil {
+                    PodDashboardSheet(podId: podId)
                 }
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
@@ -142,80 +236,435 @@ struct PodSelectorView: View {
         .padding()
     }
     
-    private var podSelectorTabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(pods) { pod in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedPodId = pod.id
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(String(pod.name.prefix(1)))
-                                .font(.caption)
-                                .fontWeight(.bold)
-                                .foregroundStyle(.white)
-                                .frame(width: 24, height: 24)
-                                .background(
-                                    Circle()
-                                        .fill(selectedPodId == pod.id ? Color.seenGreen : Color.gray)
-                                )
-                            
-                            Text(pod.name)
-                                .font(.subheadline)
-                                .fontWeight(selectedPodId == pod.id ? .semibold : .regular)
-                                .foregroundStyle(selectedPodId == pod.id ? .primary : .secondary)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(selectedPodId == pod.id ? Color.seenGreen.opacity(0.15) : Color(.systemGray6))
-                        )
-                    }
-                    .accessibilityLabel("Pod: \(pod.name)")
-                    .accessibilityAddTraits(selectedPodId == pod.id ? .isSelected : [])
-                }
-                
-                // Add pod button
-                Button {
-                    showingCreatePod = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.seenGreen)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .strokeBorder(Color.seenGreen, lineWidth: 1.5)
-                        )
-                }
-                .accessibilityLabel("Create new pod")
+    private var emptyFeedState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 50))
+                .foregroundStyle(.secondary)
+            
+            Text("No Activity Yet")
+                .font(.title3)
+                .fontWeight(.semibold)
+            
+            if selectedPodId == "all" {
+                Text("Check in on your goals to see\nactivity in the feed!")
+            } else {
+                Text("No posts in this pod yet.\nBe the first to share!")
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            
+            Spacer()
         }
-        .background(Color(.systemBackground))
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+        .multilineTextAlignment(.center)
+        .padding()
     }
     
-    private func loadPods() async {
+    private func loadData() async {
         isLoading = true
         defer { isLoading = false }
         
+        // Use mock data for demo
+        if useMockData {
+            loadMockData()
+            return
+        }
+        
         do {
+            // Load pods first
             pods = try await PodService.shared.getMyPods()
             
-            // Select first pod if none selected
-            if selectedPodId == nil, let firstPod = pods.first {
-                selectedPodId = firstPod.id
+            // Convert to PodRingData
+            podRings = pods.map { pod in
+                PodRingData(
+                    id: pod.id,
+                    name: pod.name,
+                    status: .allCompleted, // TODO: Calculate actual status
+                    hasNewActivity: false, // TODO: Track new activity
+                    isAllPods: false
+                )
             }
+            
+            // Load unified feed
+            let response = try await FeedService.shared.getUnifiedFeed()
+            feedPosts = response.items
+            nextCursor = response.nextCursor
+            
         } catch let error as APIError {
-            errorMessage = error.localizedDescription
+            // If API fails, fall back to mock data for demo
+            print("API error, using mock data: \(error)")
+            loadMockData()
         } catch {
-            errorMessage = "Failed to load pods"
-            print("Load pods error: \(error)")
+            print("Load data error, using mock data: \(error)")
+            loadMockData()
+        }
+    }
+    
+    private func loadMockData() {
+        // Mock pods with photos and member avatars
+        podRings = [
+            PodRingData(
+                id: "pod1",
+                name: "Fitness Squad",
+                status: .allCompleted,
+                hasNewActivity: true,
+                isAllPods: false,
+                photoUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200",
+                memberAvatars: []
+            ),
+            PodRingData(
+                id: "pod2",
+                name: "Book Club",
+                status: .hasPending,
+                hasNewActivity: false,
+                isAllPods: false,
+                photoUrl: nil,
+                memberAvatars: ["https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23", "https://i.pravatar.cc/100?img=15"]
+            ),
+            PodRingData(
+                id: "pod3",
+                name: "Morning Routines",
+                status: .noGoals,
+                hasNewActivity: true,
+                isAllPods: false,
+                photoUrl: "https://images.unsplash.com/photo-1545389336-cf090694435e?w=200",
+                memberAvatars: []
+            ),
+        ]
+        
+        // Mock pod details with member info
+        pods = [
+            PodListItem(
+                id: "pod1",
+                name: "Fitness Squad",
+                description: "Daily workouts and fitness challenges. Let's get fit together! 💪",
+                stakes: "Loser buys coffee",
+                memberCount: 4,
+                maxMembers: 6,
+                role: .MEMBER,
+                joinedAt: ISO8601DateFormatter().string(from: Date()),
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                memberAvatars: ["https://i.pravatar.cc/100?img=5", "https://i.pravatar.cc/100?img=8", "https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23"]
+            ),
+            PodListItem(
+                id: "pod2",
+                name: "Book Club",
+                description: "Reading 20 pages a day. Share your progress and discuss!",
+                stakes: nil,
+                memberCount: 3,
+                maxMembers: 5,
+                role: .OWNER,
+                joinedAt: ISO8601DateFormatter().string(from: Date()),
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                memberAvatars: ["https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23", "https://i.pravatar.cc/100?img=15"]
+            ),
+            PodListItem(
+                id: "pod3",
+                name: "Morning Routines",
+                description: "Wake up early, meditate, journal. Building better habits.",
+                stakes: nil,
+                memberCount: 5,
+                maxMembers: 8,
+                role: .MEMBER,
+                joinedAt: ISO8601DateFormatter().string(from: Date()),
+                createdAt: ISO8601DateFormatter().string(from: Date()),
+                memberAvatars: ["https://i.pravatar.cc/100?img=9", "https://i.pravatar.cc/100?img=17", "https://i.pravatar.cc/100?img=21", "https://i.pravatar.cc/100?img=33", "https://i.pravatar.cc/100?img=44"]
+            )
+        ]
+        
+        // Mock feed posts from multiple pods
+        feedPosts = [
+            PodPost(
+                id: "1",
+                type: .CELEBRATION,
+                content: "Just hit a 10-day streak! 🔥 Feeling unstoppable!",
+                mediaUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400",
+                mediaType: .PHOTO,
+                author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
+                target: nil,
+                podId: "pod1",
+                podName: "Fitness Squad",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800))
+            ),
+            PodPost(
+                id: "2",
+                type: .ENCOURAGEMENT,
+                content: "You've got this! Just 30 more pages to go! 📚",
+                mediaUrl: nil,
+                mediaType: nil,
+                author: PostAuthor(id: "user2", name: "Mike", avatarUrl: "https://i.pravatar.cc/150?img=12"),
+                target: PostAuthor(id: "user3", name: "Emma", avatarUrl: nil),
+                podId: "pod2",
+                podName: "Book Club",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
+            ),
+            PodPost(
+                id: "3",
+                type: .NUDGE,
+                content: "Hey, don't forget your morning workout! We're waiting for your check-in 💪",
+                mediaUrl: nil,
+                mediaType: nil,
+                author: PostAuthor(id: "user4", name: "Alex", avatarUrl: "https://i.pravatar.cc/150?img=8"),
+                target: PostAuthor(id: "user5", name: "Jordan", avatarUrl: nil),
+                podId: "pod1",
+                podName: "Fitness Squad",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-5400))
+            ),
+            PodPost(
+                id: "4",
+                type: .CELEBRATION,
+                content: "Morning meditation done! Starting the day with a clear mind ✨",
+                mediaUrl: "https://images.unsplash.com/photo-1545389336-cf090694435e?w=400",
+                mediaType: .PHOTO,
+                author: PostAuthor(id: "user6", name: "Luna", avatarUrl: "https://i.pravatar.cc/150?img=9"),
+                target: nil,
+                podId: "pod3",
+                podName: "Morning Routines",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200))
+            ),
+            PodPost(
+                id: "5",
+                type: .ENCOURAGEMENT,
+                content: "Great job on finishing that chapter! The ending was so good, right?",
+                mediaUrl: nil,
+                mediaType: nil,
+                author: PostAuthor(id: "user3", name: "Emma", avatarUrl: "https://i.pravatar.cc/150?img=23"),
+                target: PostAuthor(id: "user2", name: "Mike", avatarUrl: nil),
+                podId: "pod2",
+                podName: "Book Club",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-10800))
+            ),
+            PodPost(
+                id: "6",
+                type: .CELEBRATION,
+                content: "5K run complete! Personal best time 🏃‍♀️",
+                mediaUrl: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400",
+                mediaType: .PHOTO,
+                author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
+                target: nil,
+                podId: "pod1",
+                podName: "Fitness Squad",
+                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400))
+            ),
+        ]
+        
+        nextCursor = nil
+    }
+    
+    private func loadMorePosts() async {
+        guard let cursor = nextCursor, !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        
+        do {
+            let response = try await FeedService.shared.getUnifiedFeed(cursor: cursor)
+            feedPosts.append(contentsOf: response.items)
+            nextCursor = response.nextCursor
+        } catch {
+            print("Load more error: \(error)")
+        }
+    }
+}
+
+// MARK: - Unified Post Card (with Pod Badge)
+
+struct UnifiedPostCard: View {
+    let post: PodPost
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with pod badge
+            HStack(spacing: 10) {
+                // Author avatar
+                authorAvatar
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    // Author name + target
+                    HStack(spacing: 4) {
+                        Text(post.author.name)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        if let target = post.target {
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(target.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    // Pod badge + time
+                    HStack(spacing: 6) {
+                        if let podName = post.podName {
+                            Text(podName)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.seenGreen)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.seenGreen.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        
+                        Text(timeAgo)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Post type emoji
+                Text(post.type.emoji)
+                    .font(.title2)
+            }
+            
+            // Content
+            if let content = post.content, !content.isEmpty {
+                Text(content)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+            }
+            
+            // Media
+            if let mediaUrl = post.mediaUrl, let url = URL(string: mediaUrl) {
+                mediaContent(url: url)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+    }
+    
+    @ViewBuilder
+    private var authorAvatar: some View {
+        if let avatarUrl = post.author.avatarUrl, let url = URL(string: avatarUrl) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    avatarPlaceholder
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                case .failure:
+                    avatarPlaceholder
+                @unknown default:
+                    avatarPlaceholder
+                }
+            }
+        } else {
+            avatarPlaceholder
+        }
+    }
+    
+    private var avatarPlaceholder: some View {
+        Text(String(post.author.name.prefix(1)).uppercased())
+            .font(.headline)
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(width: 44, height: 44)
+            .background(
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.seenGreen, .seenMint],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+    }
+    
+    @ViewBuilder
+    private func mediaContent(url: URL) -> some View {
+        switch post.mediaType {
+        case .PHOTO:
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .empty:
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.tertiarySystemBackground))
+                        .frame(height: 200)
+                        .overlay(ProgressView())
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxHeight: 300)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                case .failure:
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.tertiarySystemBackground))
+                        .frame(height: 100)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .foregroundStyle(.secondary)
+                        )
+                @unknown default:
+                    EmptyView()
+                }
+            }
+        case .VIDEO:
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.8))
+                .frame(height: 180)
+                .overlay(
+                    VStack(spacing: 8) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundStyle(.white.opacity(0.9))
+                        Text("Video")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                )
+        case .AUDIO:
+            RoundedRectangle(cornerRadius: 12)
+                .fill(
+                    LinearGradient(
+                        colors: [.seenPurple.opacity(0.3), .seenBlue.opacity(0.3)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 80)
+                .overlay(
+                    HStack(spacing: 12) {
+                        Image(systemName: "waveform.circle.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.seenPurple)
+                        Text("Voice Message")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                )
+        case .none:
+            EmptyView()
+        }
+    }
+    
+    private var timeAgo: String {
+        guard let date = post.createdAtDate else { return "" }
+        
+        let elapsed = Date().timeIntervalSince(date)
+        
+        if elapsed < 60 {
+            return "now"
+        } else if elapsed < 3600 {
+            return "\(Int(elapsed / 60))m"
+        } else if elapsed < 86400 {
+            return "\(Int(elapsed / 3600))h"
+        } else {
+            return "\(Int(elapsed / 86400))d"
         }
     }
 }
@@ -224,145 +673,52 @@ struct PodSelectorView: View {
 
 struct ProfileView: View {
     var authService: AuthService
+    @State private var pods: [PodListItem] = []
+    @State private var isLoadingPods = true
     @State private var showingSignOutAlert = false
+    @State private var showingLeavePodAlert = false
+    @State private var podToLeave: PodListItem?
     @State private var notificationsEnabled = false
     @State private var isRequestingNotifications = false
+    @State private var errorMessage: String?
+    
+    // User stats
+    @State private var userStats: UserStats?
+    @State private var isLoadingStats = true
+    
+    // Photo picker
+    @State private var showingPhotoOptions = false
+    @State private var showingImagePicker = false
+    @State private var showingCamera = false
+    @State private var isUploadingAvatar = false
+    
+    // Computed stats with fallback to 0
+    private var totalCheckIns: Int { userStats?.totalCheckIns ?? 0 }
+    private var currentStreak: Int { userStats?.currentStreak ?? 0 }
+    private var longestStreak: Int { userStats?.longestStreak ?? 0 }
     
     var body: some View {
         NavigationStack {
-            List {
-                // User Info Section
-                if let user = authService.currentUser {
-                    Section {
-                        HStack(spacing: 16) {
-                            // Profile avatar
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [Color.seenGreen, Color.seenMint],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 70, height: 70)
-                                
-                                Text(String(user.name.prefix(1)))
-                                    .font(.title)
-                                    .fontWeight(.bold)
-                                    .foregroundStyle(.white)
-                            }
-                            .accessibilityHidden(true)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(user.name)
-                                    .font(.title3.weight(.semibold))
-                                
-                                if let email = user.email {
-                                    Text(email)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Profile: \(user.name)")
-                    }
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Profile Header Card
+                    profileHeader
                     
-                    // Stats Section
-                    Section("Stats") {
-                        StatRow(icon: "flame.fill", color: .orange, label: "Current Streak", value: "–")
-                        StatRow(icon: "trophy.fill", color: .yellow, label: "Longest Streak", value: "–")
-                        StatRow(icon: "checkmark.circle.fill", color: .seenGreen, label: "Total Check-ins", value: "–")
-                    }
+                    // Stats Cards
+                    statsSection
+                    
+                    // My Pods Section
+                    podsSection
                     
                     // Settings Section
-                    Section("Settings") {
-                        // Timezone
-                        HStack {
-                            Label("Timezone", systemImage: "globe")
-                            Spacer()
-                            Text(user.timezone)
-                                .foregroundStyle(.secondary)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("Timezone: \(user.timezone)")
-                        
-                        // Notifications
-                        if notificationsEnabled {
-                            HStack {
-                                Label {
-                                    Text("Notifications")
-                                } icon: {
-                                    Image(systemName: "bell.badge.fill")
-                                        .foregroundStyle(.seenGreen)
-                                }
-                                Spacer()
-                                Text("Enabled")
-                                    .foregroundStyle(.seenGreen)
-                            }
-                            .accessibilityLabel("Notifications enabled")
-                        } else {
-                            Button {
-                                Task { await requestNotifications() }
-                            } label: {
-                                HStack {
-                                    Label("Enable Notifications", systemImage: "bell")
-                                    Spacer()
-                                    if isRequestingNotifications {
-                                        ProgressView()
-                                    } else {
-                                        Image(systemName: "chevron.right")
-                                            .foregroundStyle(.tertiary)
-                                    }
-                                }
-                            }
-                            .disabled(isRequestingNotifications)
-                            .accessibilityLabel("Enable notifications")
-                            .accessibilityHint("Double tap to request notification permissions")
-                        }
-                    }
-                }
-                
-                // App Info Section
-                Section("About") {
-                    HStack {
-                        Label("Version", systemImage: "info.circle")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundStyle(.secondary)
-                    }
+                    settingsSection
                     
-                    Link(destination: URL(string: "https://seen.app/privacy")!) {
-                        HStack {
-                            Label("Privacy Policy", systemImage: "hand.raised")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    
-                    Link(destination: URL(string: "https://seen.app/terms")!) {
-                        HStack {
-                            Label("Terms of Service", systemImage: "doc.text")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
+                    // Sign Out Button
+                    signOutButton
                 }
-                
-                // Sign Out Section
-                Section {
-                    Button(role: .destructive) {
-                        showingSignOutAlert = true
-                    } label: {
-                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                    .accessibilityHint("Double tap to sign out of your account")
-                }
+                .padding()
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Profile")
             .alert("Sign Out", isPresented: $showingSignOutAlert) {
                 Button("Cancel", role: .cancel) { }
@@ -372,12 +728,440 @@ struct ProfileView: View {
             } message: {
                 Text("Are you sure you want to sign out?")
             }
+            .alert("Leave Pod", isPresented: $showingLeavePodAlert) {
+                Button("Cancel", role: .cancel) { podToLeave = nil }
+                Button("Leave", role: .destructive) {
+                    if let pod = podToLeave {
+                        Task { await leavePod(pod) }
+                    }
+                }
+            } message: {
+                if let pod = podToLeave {
+                    Text("Are you sure you want to leave \"\(pod.name)\"? You'll lose access to all goals and activity in this pod.")
+                }
+            }
+            .alert("Error", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
         }
         .task {
             if authService.currentUser == nil {
                 await authService.fetchCurrentUser()
             }
             notificationsEnabled = NotificationService.shared.isAuthorized
+            await loadPods()
+            await loadStats()
+        }
+    }
+    
+    private func loadStats() async {
+        isLoadingStats = true
+        defer { isLoadingStats = false }
+        
+        if let stats = await authService.fetchUserStats() {
+            userStats = stats
+        }
+    }
+    
+    private func uploadNewAvatar(_ image: UIImage) async {
+        isUploadingAvatar = true
+        defer { isUploadingAvatar = false }
+        
+        do {
+            _ = try await authService.uploadAvatar(image: image)
+        } catch {
+            errorMessage = "Failed to upload photo: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - Profile Header
+    
+    private var profileHeader: some View {
+        VStack(spacing: 16) {
+            // Avatar - Tappable to change
+            Button {
+                showingPhotoOptions = true
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.seenGreen, .seenMint, .seenBlue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 100, height: 100)
+                        .shadow(color: .seenGreen.opacity(0.3), radius: 10, y: 5)
+                    
+                    if isUploadingAvatar {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                    } else if let user = authService.currentUser {
+                        if let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
+                            AsyncImage(url: url) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 92, height: 92)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                Text(String(user.name.prefix(1)).uppercased())
+                                    .font(.system(size: 40, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        } else {
+                            Text(String(user.name.prefix(1)).uppercased())
+                                .font(.system(size: 40, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    
+                    // Camera badge overlay
+                    Circle()
+                        .fill(Color(.systemBackground))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.seenGreen)
+                        )
+                        .offset(x: 35, y: 35)
+                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                }
+            }
+            .disabled(isUploadingAvatar)
+            .confirmationDialog("Change Profile Photo", isPresented: $showingPhotoOptions, titleVisibility: .visible) {
+                Button("Take Photo") {
+                    showingCamera = true
+                }
+                Button("Choose from Library") {
+                    showingImagePicker = true
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+            .sheet(isPresented: $showingImagePicker) {
+                ImagePicker(sourceType: .photoLibrary) { image in
+                    Task { await uploadNewAvatar(image) }
+                }
+            }
+            .sheet(isPresented: $showingCamera) {
+                ImagePicker(sourceType: .camera) { image in
+                    Task { await uploadNewAvatar(image) }
+                }
+            }
+            
+            // Name & Email
+            if let user = authService.currentUser {
+                VStack(spacing: 4) {
+                    Text(user.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    if let email = user.email {
+                        Text(email)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    // Member since badge
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.caption2)
+                        Text("Member since \(memberSinceText)")
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 4)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+    }
+    
+    private var memberSinceText: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+        
+        // Try to use memberSince from stats, or createdAt from user
+        if let memberSince = userStats?.memberSince,
+           let date = ISO8601DateFormatter().date(from: memberSince) {
+            return formatter.string(from: date)
+        } else if let createdAt = authService.currentUser?.createdAt,
+                  let date = ISO8601DateFormatter().date(from: createdAt) {
+            return formatter.string(from: date)
+        }
+        
+        return formatter.string(from: Date())
+    }
+    
+    // MARK: - Stats Section
+    
+    private var statsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your Stats")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 4)
+            
+            HStack(spacing: 12) {
+                ProfileStatCard(
+                    icon: "flame.fill",
+                    iconColor: .orange,
+                    value: "\(currentStreak)",
+                    label: "Current Streak",
+                    bgGradient: [.orange.opacity(0.15), .red.opacity(0.1)]
+                )
+                
+                ProfileStatCard(
+                    icon: "trophy.fill",
+                    iconColor: .yellow,
+                    value: "\(longestStreak)",
+                    label: "Best Streak",
+                    bgGradient: [.yellow.opacity(0.15), .orange.opacity(0.1)]
+                )
+                
+                ProfileStatCard(
+                    icon: "checkmark.circle.fill",
+                    iconColor: .seenGreen,
+                    value: "\(totalCheckIns)",
+                    label: "Check-ins",
+                    bgGradient: [.seenGreen.opacity(0.15), .seenMint.opacity(0.1)]
+                )
+            }
+        }
+    }
+    
+    // MARK: - Pods Section
+    
+    private var podsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("My Pods")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Text("\(pods.count) pod\(pods.count == 1 ? "" : "s")")
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 4)
+            
+            if isLoadingPods {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, 32)
+            } else if pods.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "person.3")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("No pods yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    Text("Join or create a pod from the Feed tab")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(pods) { pod in
+                        ProfilePodRow(pod: pod) {
+                            podToLeave = pod
+                            showingLeavePodAlert = true
+                        }
+                        
+                        if pod.id != pods.last?.id {
+                            Divider()
+                                .padding(.leading, 60)
+                        }
+                    }
+                }
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+        }
+    }
+    
+    // MARK: - Settings Section
+    
+    private var settingsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Settings")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 4)
+            
+            VStack(spacing: 0) {
+                // Timezone
+                if let user = authService.currentUser {
+                    SettingsRow(
+                        icon: "globe",
+                        iconColor: .blue,
+                        title: "Timezone",
+                        value: user.timezone,
+                        action: nil
+                    )
+                    
+                    Divider().padding(.leading, 50)
+                }
+                
+                // Notifications
+                SettingsRow(
+                    icon: notificationsEnabled ? "bell.badge.fill" : "bell",
+                    iconColor: notificationsEnabled ? .seenGreen : .gray,
+                    title: "Notifications",
+                    value: notificationsEnabled ? "Enabled" : "Off",
+                    valueColor: notificationsEnabled ? .seenGreen : .secondary,
+                    showChevron: !notificationsEnabled,
+                    isLoading: isRequestingNotifications
+                ) {
+                    if !notificationsEnabled {
+                        Task { await requestNotifications() }
+                    }
+                }
+                
+                Divider().padding(.leading, 50)
+                
+                // Version
+                SettingsRow(
+                    icon: "info.circle",
+                    iconColor: .gray,
+                    title: "Version",
+                    value: "1.0.0",
+                    action: nil
+                )
+                
+                Divider().padding(.leading, 50)
+                
+                // Privacy Policy
+                Link(destination: URL(string: "https://seen.app/privacy")!) {
+                    SettingsRow(
+                        icon: "hand.raised",
+                        iconColor: .purple,
+                        title: "Privacy Policy",
+                        showChevron: true,
+                        isExternal: true,
+                        action: nil
+                    )
+                }
+                
+                Divider().padding(.leading, 50)
+                
+                // Terms
+                Link(destination: URL(string: "https://seen.app/terms")!) {
+                    SettingsRow(
+                        icon: "doc.text",
+                        iconColor: .orange,
+                        title: "Terms of Service",
+                        showChevron: true,
+                        isExternal: true,
+                        action: nil
+                    )
+                }
+            }
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+    
+    // MARK: - Sign Out Button
+    
+    private var signOutButton: some View {
+        Button {
+            showingSignOutAlert = true
+        } label: {
+            HStack {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                Text("Sign Out")
+            }
+            .font(.headline)
+            .foregroundStyle(.red)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .padding(.bottom, 20)
+    }
+    
+    // MARK: - Actions
+    
+    private func loadPods() async {
+        isLoadingPods = true
+        defer { isLoadingPods = false }
+        
+        do {
+            pods = try await PodService.shared.getMyPods()
+        } catch {
+            // Use mock data on error
+            pods = [
+                PodListItem(
+                    id: "pod1",
+                    name: "Fitness Squad",
+                    description: "Daily workouts and fitness challenges",
+                    stakes: "Loser buys coffee",
+                    memberCount: 4,
+                    maxMembers: 6,
+                    role: .MEMBER,
+                    joinedAt: ISO8601DateFormatter().string(from: Date()),
+                    createdAt: ISO8601DateFormatter().string(from: Date()),
+                    memberAvatars: nil
+                ),
+                PodListItem(
+                    id: "pod2",
+                    name: "Book Club",
+                    description: "Reading 20 pages a day",
+                    stakes: nil,
+                    memberCount: 3,
+                    maxMembers: 5,
+                    role: .OWNER,
+                    joinedAt: ISO8601DateFormatter().string(from: Date()),
+                    createdAt: ISO8601DateFormatter().string(from: Date()),
+                    memberAvatars: nil
+                ),
+                PodListItem(
+                    id: "pod3",
+                    name: "Morning Routines",
+                    description: "Wake up early, meditate, journal",
+                    stakes: nil,
+                    memberCount: 5,
+                    maxMembers: 8,
+                    role: .MEMBER,
+                    joinedAt: ISO8601DateFormatter().string(from: Date()),
+                    createdAt: ISO8601DateFormatter().string(from: Date()),
+                    memberAvatars: nil
+                )
+            ]
+        }
+    }
+    
+    private func leavePod(_ pod: PodListItem) async {
+        guard let userId = authService.currentUser?.id else { return }
+        
+        do {
+            try await PodService.shared.leavePod(podId: pod.id, userId: userId)
+            pods.removeAll { $0.id == pod.id }
+            podToLeave = nil
+        } catch {
+            errorMessage = "Failed to leave pod: \(error.localizedDescription)"
         }
     }
     
@@ -390,27 +1174,169 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - Stat Row
+// MARK: - Profile Stat Card
 
-private struct StatRow: View {
+private struct ProfileStatCard: View {
     let icon: String
-    let color: Color
-    let label: String
+    let iconColor: Color
     let value: String
+    let label: String
+    let bgGradient: [Color]
     
     var body: some View {
-        HStack {
-            Label {
-                Text(label)
-            } icon: {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
-            }
-            Spacer()
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(iconColor)
+            
             Text(value)
-                .font(.headline)
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text(label)
+                .font(.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(
+            LinearGradient(colors: bgGradient, startPoint: .topLeading, endPoint: .bottomTrailing)
+        )
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+// MARK: - Profile Pod Row
+
+private struct ProfilePodRow: View {
+    let pod: PodListItem
+    let onLeave: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Pod icon
+            ZStack {
+                Circle()
+                    .fill(podColor.opacity(0.2))
+                    .frame(width: 44, height: 44)
+                
+                Text(String(pod.name.prefix(1)).uppercased())
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundStyle(podColor)
+            }
+            
+            // Pod info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(pod.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    
+                    if pod.role == .OWNER {
+                        Text("OWNER")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.seenGreen)
+                            .clipShape(Capsule())
+                    }
+                }
+                
+                Text("\(pod.memberCount) member\(pod.memberCount == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            // Leave button (not for owners)
+            if pod.role != .OWNER {
+                Button {
+                    onLeave()
+                } label: {
+                    Text("Leave")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+    
+    private var podColor: Color {
+        // Generate consistent color based on pod name
+        let colors: [Color] = [.seenGreen, .seenBlue, .seenPurple, .orange, .pink]
+        let index = abs(pod.name.hashValue) % colors.count
+        return colors[index]
+    }
+}
+
+// MARK: - Settings Row
+
+private struct SettingsRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    var value: String? = nil
+    var valueColor: Color = .secondary
+    var showChevron: Bool = false
+    var isExternal: Bool = false
+    var isLoading: Bool = false
+    var action: (() -> Void)?
+    
+    var body: some View {
+        Button {
+            action?()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundStyle(iconColor)
+                    .frame(width: 28)
+                
+                Text(title)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                if isLoading {
+                    ProgressView()
+                } else if let value = value {
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(valueColor)
+                }
+                
+                if showChevron {
+                    Image(systemName: isExternal ? "arrow.up.right" : "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .disabled(action == nil)
+        .buttonStyle(.plain)
     }
 }
 

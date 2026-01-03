@@ -238,11 +238,11 @@ struct GoalRow: View {
                 
                 Spacer()
                 
-                if goal.currentStreak > 0 {
+                if let streak = goal.currentStreak, streak > 0 {
                     HStack(spacing: 2) {
                         Image(systemName: "flame.fill")
                             .foregroundStyle(.orange)
-                        Text("\(goal.currentStreak)")
+                        Text("\(streak)")
                             .fontWeight(.medium)
                     }
                     .font(.caption)

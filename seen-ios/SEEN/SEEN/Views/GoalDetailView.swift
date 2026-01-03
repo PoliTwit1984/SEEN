@@ -267,22 +267,9 @@ struct GoalDetailView: View {
             isCheckedInToday = true
             
             // Update goal streaks locally
-            if var g = goal {
-                g = Goal(
-                    id: g.id, podId: g.podId, podName: g.podName,
-                    userId: g.userId, userName: g.userName, userAvatarUrl: g.userAvatarUrl,
-                    title: g.title, description: g.description,
-                    frequencyType: g.frequencyType, frequencyDays: g.frequencyDays,
-                    reminderTime: g.reminderTime, deadlineTime: g.deadlineTime,
-                    timezone: g.timezone, requiresProof: g.requiresProof,
-                    startDate: g.startDate, endDate: g.endDate,
-                    currentStreak: response.currentStreak,
-                    longestStreak: response.longestStreak,
-                    totalCheckIns: g.totalCheckIns, completedCheckIns: g.completedCheckIns,
-                    isArchived: g.isArchived, createdAt: g.createdAt, checkIns: g.checkIns
-                )
-                goal = g
-            }
+            goal?.currentStreak = response.currentStreak
+            goal?.longestStreak = response.longestStreak
+            goal?.todayCheckedIn = true
             
             checkInSuccess = true
         } catch let error as APIError {

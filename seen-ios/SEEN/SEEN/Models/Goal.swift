@@ -28,29 +28,30 @@ enum CheckInStatus: String, Codable {
 }
 
 struct Goal: Codable, Identifiable {
-    let id: String
-    let podId: String?
-    let podName: String?
-    let userId: String?
-    let userName: String?
-    let userAvatarUrl: String?
-    let title: String
-    let description: String?
-    let frequencyType: FrequencyType?
-    let frequencyDays: [Int]?
-    let reminderTime: String?
-    let deadlineTime: String?
-    let timezone: String?
-    let requiresProof: Bool?
-    let startDate: String?
-    let endDate: String?
-    let currentStreak: Int
-    let longestStreak: Int
-    let totalCheckIns: Int?
-    let completedCheckIns: Int?
-    let isArchived: Bool?
-    let createdAt: String
-    let checkIns: [CheckIn]?
+    var id: String
+    var podId: String?
+    var podName: String?
+    var userId: String?
+    var userName: String?
+    var userAvatarUrl: String?
+    var title: String
+    var description: String?
+    var frequencyType: FrequencyType?
+    var frequencyDays: [Int]?
+    var reminderTime: String?
+    var deadlineTime: String?
+    var timezone: String?
+    var requiresProof: Bool?
+    var startDate: String?
+    var endDate: String?
+    var currentStreak: Int?
+    var longestStreak: Int?
+    var totalCheckIns: Int?
+    var completedCheckIns: Int?
+    var isArchived: Bool?
+    var createdAt: String?
+    var checkIns: [CheckIn]?
+    var todayCheckedIn: Bool?  // Whether user has checked in today
     
     // Computed properties with defaults
     var displayFrequency: String {

@@ -23,6 +23,15 @@ struct AuthResponse: Codable {
     let isNewUser: Bool
 }
 
+struct UserStats: Codable {
+    let currentStreak: Int
+    let longestStreak: Int
+    let totalCheckIns: Int
+    let activeGoals: Int
+    let podsCount: Int
+    let memberSince: String?
+}
+
 struct TokenRefreshResponse: Codable {
     let accessToken: String
     let refreshToken: String

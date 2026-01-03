@@ -40,14 +40,87 @@ router.get('/me', authMiddleware, async (req: AuthenticatedRequest, res: Respons
   }
 });
 
+// GET /users/me/stats - Get aggregated user statistics
+router.get('/me/stats', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+
+    // Get all user's goals with their stats
+    const goals = await prisma.goal.findMany({
+      where: {
+        userId,
+        isArchived: false,
+      },
+      select: {
+        currentStreak: true,
+        longestStreak: true,
+        _count: {
+          select: { checkIns: true },
+        },
+      },
+    });
+
+    // Get total completed check-ins
+    const totalCheckIns = await prisma.checkIn.count({
+      where: {
+        userId,
+        status: 'COMPLETED',
+      },
+    });
+
+    // Calculate current streak (max of all active goals)
+    const currentStreak = goals.length > 0
+      ? Math.max(...goals.map((g) => g.currentStreak))
+      : 0;
+
+    // Calculate longest streak (max ever achieved)
+    const longestStreak = goals.length > 0
+      ? Math.max(...goals.map((g) => g.longestStreak))
+      : 0;
+
+    // Get pods count
+    const podsCount = await prisma.podMember.count({
+      where: {
+        userId,
+        status: 'ACTIVE',
+      },
+    });
+
+    // Get member since date
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { createdAt: true },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        currentStreak,
+        longestStreak,
+        totalCheckIns,
+        activeGoals: goals.length,
+        podsCount,
+        memberSince: user?.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to get user stats' },
+    });
+  }
+});
+
 // PATCH /users/me
 router.patch('/me', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { name, timezone } = req.body;
+    const { name, timezone, avatarUrl } = req.body;
 
-    const updateData: { name?: string; timezone?: string } = {};
+    const updateData: { name?: string; timezone?: string; avatarUrl?: string } = {};
     if (name) updateData.name = name;
     if (timezone) updateData.timezone = timezone;
+    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
 
     const user = await prisma.user.update({
       where: { id: req.user!.id },

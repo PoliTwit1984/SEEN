@@ -81,7 +81,7 @@ struct VisualFeedView: View {
                 }
             }
             .sheet(isPresented: $showingCheckIn) {
-                CheckInSelectionView(pods: pods, onComplete: {
+                LegacyCheckInSelectionView(pods: pods, onComplete: {
                     Task { await refreshAll() }
                 })
             }
@@ -245,9 +245,9 @@ struct VisualFeedView: View {
     }
 }
 
-// MARK: - Check-In Selection View
+// MARK: - Legacy Check-In Selection View (deprecated - use standalone CheckInSelectionView)
 
-struct CheckInSelectionView: View {
+struct LegacyCheckInSelectionView: View {
     let pods: [PodWithStatus]
     let onComplete: () -> Void
     

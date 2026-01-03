@@ -26,6 +26,16 @@ actor FeedService {
         )
     }
     
+    // MARK: - Unified Feed (all pods)
+    
+    func getUnifiedFeed(cursor: String? = nil, limit: Int = 20) async throws -> UnifiedFeedResponse {
+        var path = "/feed/unified?limit=\(limit)"
+        if let cursor = cursor {
+            path += "&cursor=\(cursor)"
+        }
+        return try await APIClient.shared.request(path: path)
+    }
+    
     // MARK: - Get Pod Story Items
     
     /// Get feed items for a pod formatted for story view (most recent first, with photos prioritized)
