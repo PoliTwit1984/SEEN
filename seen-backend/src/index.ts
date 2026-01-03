@@ -14,6 +14,7 @@ import waitlistRoutes from './routes/waitlist';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
 import { startDeadlineWorker, scheduleAllDeadlineChecks } from './workers/deadlineWorker';
+import { startReminderWorker, scheduleAllReminders } from './workers/reminderWorker';
 
 dotenv.config();
 
@@ -66,13 +67,16 @@ app.listen(PORT, async () => {
   
   // Start workers
   startDeadlineWorker();
+  startReminderWorker();
   
-  // Schedule deadline checks for today
+  // Schedule deadline checks and reminders for today
   await scheduleAllDeadlineChecks();
+  await scheduleAllReminders();
   
   // Re-schedule every hour to catch new goals
   setInterval(async () => {
     await scheduleAllDeadlineChecks();
+    await scheduleAllReminders();
   }, 60 * 60 * 1000);
 });
 
