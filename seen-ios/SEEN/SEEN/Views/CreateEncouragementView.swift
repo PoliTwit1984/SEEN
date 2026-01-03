@@ -242,6 +242,7 @@ extension PostType {
         case .ENCOURAGEMENT: return "heart.fill"
         case .NUDGE: return "hand.point.up.fill"
         case .CELEBRATION: return "party.popper.fill"
+        case .CHECK_IN: return "checkmark.circle.fill"
         }
     }
 }

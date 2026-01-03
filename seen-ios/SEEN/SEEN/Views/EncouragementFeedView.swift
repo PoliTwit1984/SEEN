@@ -297,6 +297,7 @@ struct EncouragementPostCard: View {
         case .ENCOURAGEMENT: return .seenGreen
         case .NUDGE: return .orange
         case .CELEBRATION: return .purple
+        case .CHECK_IN: return .seenGreen
         }
     }
     

@@ -386,6 +386,7 @@ struct UnifiedFeedView: View {
                 target: nil,
                 podId: "pod1",
                 podName: "Fitness Squad",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800))
             ),
             PodPost(
@@ -398,6 +399,7 @@ struct UnifiedFeedView: View {
                 target: PostAuthor(id: "user3", name: "Emma", avatarUrl: nil),
                 podId: "pod2",
                 podName: "Book Club",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
             ),
             PodPost(
@@ -410,6 +412,7 @@ struct UnifiedFeedView: View {
                 target: PostAuthor(id: "user5", name: "Jordan", avatarUrl: nil),
                 podId: "pod1",
                 podName: "Fitness Squad",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-5400))
             ),
             PodPost(
@@ -422,6 +425,7 @@ struct UnifiedFeedView: View {
                 target: nil,
                 podId: "pod3",
                 podName: "Morning Routines",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200))
             ),
             PodPost(
@@ -434,6 +438,7 @@ struct UnifiedFeedView: View {
                 target: PostAuthor(id: "user2", name: "Mike", avatarUrl: nil),
                 podId: "pod2",
                 podName: "Book Club",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-10800))
             ),
             PodPost(
@@ -446,6 +451,7 @@ struct UnifiedFeedView: View {
                 target: nil,
                 podId: "pod1",
                 podName: "Fitness Squad",
+                goalTitle: nil,
                 createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400))
             ),
         ]
