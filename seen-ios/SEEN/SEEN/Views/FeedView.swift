@@ -21,14 +21,13 @@ struct FeedView: View {
     var body: some View {
         Group {
             if isLoading && feedItems.isEmpty {
-                ProgressView("Loading feed...")
+                LoadingView(message: "Loading feed...")
             } else if feedItems.isEmpty {
                 emptyState
             } else {
                 feedList
             }
         }
-        .navigationTitle(podId == nil ? "Activity" : "Pod Activity")
         .task {
             await loadFeed()
         }
@@ -43,21 +42,11 @@ struct FeedView: View {
     }
     
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 56))
-                .foregroundStyle(.tertiary)
-            
-            Text("No Activity Yet")
-                .font(.title3)
-                .fontWeight(.medium)
-            
-            Text("Check-ins from your pods will appear here")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
+        EmptyStateView(
+            icon: "bubble.left.and.bubble.right",
+            title: "No Activity Yet",
+            message: "Check-ins from your pods will appear here"
+        )
     }
     
     private var feedList: some View {
@@ -108,24 +97,27 @@ struct FeedItemCard: View {
             // Header
             HStack {
                 // Avatar
-                Circle()
-                    .fill(Color(.systemGray4))
-                    .frame(width: 44, height: 44)
-                    .overlay {
-                        Text(String(item.user.name.prefix(1)))
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                    }
+                ZStack {
+                    Circle()
+                        .fill(Color.seenGreen.opacity(0.3))
+                        .frame(width: 44, height: 44)
+                    
+                    Text(String(item.user.name.prefix(1)))
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                }
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.user.name)
                         .font(.headline)
+                        .foregroundStyle(.white)
                     
                     HStack(spacing: 4) {
                         Text("completed")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.5))
                         Text(item.goal.title)
                             .fontWeight(.medium)
+                            .foregroundStyle(Color.seenGreen)
                     }
                     .font(.subheadline)
                     .lineLimit(1)
@@ -135,7 +127,7 @@ struct FeedItemCard: View {
                 
                 Text(timeAgo)
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.white.opacity(0.4))
             }
             
             // Proof photo if any
@@ -174,6 +166,7 @@ struct FeedItemCard: View {
             if let comment = item.checkIn.comment, !comment.isEmpty {
                 Text(comment)
                     .font(.body)
+                    .foregroundStyle(.white.opacity(0.8))
                     .padding(.leading, 56)
             }
             
@@ -207,22 +200,23 @@ struct FeedItemCard: View {
                             Text(myType.emoji)
                         } else {
                             Image(systemName: "hand.thumbsup")
+                                .foregroundStyle(.white.opacity(0.6))
                         }
                     }
                     .font(.title3)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(item.hasInteracted ? Color.accentColor.opacity(0.2) : Color(.systemGray5))
-                    .cornerRadius(20)
+                    .background(
+                        Capsule()
+                            .fill(item.hasInteracted ? Color.seenGreen.opacity(0.3) : .white.opacity(0.1))
+                    )
                 }
                 .disabled(isReacting)
             }
             .padding(.leading, 56)
         }
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .glassBackground()
         .confirmationDialog("React", isPresented: $showingReactions) {
             ForEach(InteractionType.allCases, id: \.self) { type in
                 Button("\(type.emoji) \(type.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)") {
@@ -249,7 +243,7 @@ struct FeedItemCard: View {
             
             Text("\(item.interactionCount)")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
                 .padding(.leading, 4)
         }
     }

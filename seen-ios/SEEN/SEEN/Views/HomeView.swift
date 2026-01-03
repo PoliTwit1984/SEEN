@@ -2,7 +2,7 @@
 //  HomeView.swift
 //  SEEN
 //
-//  Main home view with pod list
+//  Main home view with pod list - Liquid Glass Design
 //
 
 import SwiftUI
@@ -18,17 +18,27 @@ struct HomeView: View {
     
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading && pods.isEmpty {
-                    ProgressView("Loading pods...")
-                } else if pods.isEmpty {
-                    emptyStateView
-                } else {
-                    podListView
+            ZStack {
+                AnimatedGradientBackground()
+                
+                Group {
+                    if isLoading && pods.isEmpty {
+                        LoadingView(message: "Loading pods...")
+                    } else if pods.isEmpty {
+                        emptyStateView
+                    } else {
+                        podListView
+                    }
                 }
             }
-            .navigationTitle("My Pods")
+            .navigationTitle("")
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("My Pods")
+                        .font(.seenHeadline)
+                        .foregroundStyle(.white)
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button(action: { showingCreatePod = true }) {
@@ -38,16 +48,18 @@ struct HomeView: View {
                             Label("Join Pod", systemImage: "person.badge.plus")
                         }
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
                     }
                 }
             }
+            .toolbarBackground(.hidden, for: .navigationBar)
             .refreshable {
                 await loadPods()
             }
             .sheet(isPresented: $showingCreatePod) {
                 CreatePodView { pod in
-                    // Add the new pod to the list
                     let item = PodListItem(
                         id: pod.id,
                         name: pod.name,
@@ -81,68 +93,29 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Empty State
-    
     private var emptyStateView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            
-            Image(systemName: "person.3.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(.tertiary)
-            
-            VStack(spacing: 8) {
-                Text("No Pods Yet")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Text("Create a pod to get started or\njoin one with an invite code")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            VStack(spacing: 12) {
-                Button(action: { showingCreatePod = true }) {
-                    Label("Create Pod", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                
-                Button(action: { showingJoinPod = true }) {
-                    Label("Join Pod", systemImage: "person.badge.plus")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-            }
-            .padding(.horizontal, 48)
-            
-            Spacer()
-            
-            // Welcome message
-            if let user = authService.currentUser {
-                Text("Welcome, \(user.name)!")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom)
-            }
-        }
+        EmptyStateView(
+            icon: "person.3.fill",
+            title: "No Pods Yet",
+            message: "Create a pod to get started or join one with an invite code",
+            action: { showingCreatePod = true },
+            actionLabel: "Create Pod"
+        )
     }
-    
-    // MARK: - Pod List
     
     private var podListView: some View {
-        List(pods) { pod in
-            NavigationLink(destination: PodDetailView(podId: pod.id)) {
-                PodRowView(pod: pod)
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                ForEach(pods) { pod in
+                    NavigationLink(destination: PodDetailView(podId: pod.id)) {
+                        PodCard(pod: pod)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding()
         }
-        .listStyle(.insetGrouped)
     }
-    
-    // MARK: - Load Pods
     
     private func loadPods() async {
         isLoading = true
@@ -150,62 +123,85 @@ struct HomeView: View {
         
         do {
             pods = try await PodService.shared.getMyPods()
+        } catch let error as APIError {
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = "Failed to load pods"
-            print("Load pods error: \(error)")
         }
     }
 }
 
-// MARK: - Pod Row
+// MARK: - Pod Card (Glass Style)
 
-struct PodRowView: View {
+struct PodCard: View {
     let pod: PodListItem
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(pod.name)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(pod.name)
+                        .font(.seenHeadline)
+                        .foregroundStyle(.white)
+                    
+                    if let description = pod.description {
+                        Text(description)
+                            .font(.seenCaption)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(2)
+                    }
+                }
                 
                 Spacer()
                 
-                if pod.role == .OWNER {
-                    Text("Owner")
+                // Member count badge
+                HStack(spacing: 4) {
+                    Image(systemName: "person.2.fill")
                         .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.accentColor)
-                        .cornerRadius(4)
+                    Text("\(pod.memberCount)/\(pod.maxMembers)")
+                        .font(.caption.weight(.medium))
                 }
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(.white.opacity(0.1))
+                )
             }
             
-            if let description = pod.description {
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            
-            HStack {
-                Label("\(pod.memberCount)/\(pod.maxMembers)", systemImage: "person.2")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                
-                if let stakes = pod.stakes, !stakes.isEmpty {
-                    Text("•")
-                        .foregroundStyle(.tertiary)
-                    
-                    Text(stakes)
-                        .font(.caption)
+            // Stakes if any
+            if let stakes = pod.stakes, !stakes.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "flag.fill")
                         .foregroundStyle(.orange)
-                        .lineLimit(1)
+                    Text(stakes)
+                        .font(.seenCaption)
+                        .foregroundStyle(.white.opacity(0.8))
                 }
+            }
+            
+            // Role badge
+            HStack {
+                Text(pod.role.rawValue)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(pod.role == .OWNER ? Color.seenGreen : .white.opacity(0.7))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(pod.role == .OWNER ? Color.seenGreen.opacity(0.2) : .white.opacity(0.1))
+                    )
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.4))
             }
         }
-        .padding(.vertical, 4)
+        .padding(20)
+        .glassBackground()
     }
 }
 
