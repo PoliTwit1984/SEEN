@@ -3,8 +3,8 @@ import { Users, Target, Camera, Shield, ArrowRight, CheckCircle2, Zap, Eye, Shar
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 
-// GetWaitlist Configuration - Get your Waitlist ID from the GetWaitlist dashboard
-const GETWAITLIST_ID = 'YOUR_WAITLIST_ID'; 
+// GetWaitlist Configuration
+const GETWAITLIST_ID = '32328'; 
 
 function IPhoneMockup() {
   return (
