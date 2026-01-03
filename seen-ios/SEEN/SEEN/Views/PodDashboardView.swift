@@ -239,23 +239,34 @@ struct PostCard: View {
             // Header
             HStack {
                 Circle()
-                    .fill(Color.seenBlue.opacity(0.2))
+                    .fill(post.type == .CHECK_IN ? Color.seenGreen.opacity(0.2) : Color.seenBlue.opacity(0.2))
                     .frame(width: 36, height: 36)
                     .overlay {
-                        Text(String(post.author.name.prefix(1)))
-                            .font(.subheadline)
-                            .fontWeight(.bold)
+                        if post.type == .CHECK_IN {
+                            Image(systemName: "checkmark")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundStyle(.seenGreen)
+                        } else {
+                            Text(String(post.author.name.prefix(1)))
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                        }
                     }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(post.author.name)
                             .font(.subheadline)
                             .fontWeight(.medium)
-                        
+
                         Text(post.type.emoji)
-                        
-                        if let target = post.target {
+
+                        if post.type == .CHECK_IN, let goalTitle = post.goalTitle {
+                            Text(goalTitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        } else if let target = post.target {
                             Text("→")
                                 .foregroundStyle(.secondary)
                             Text(target.name)
@@ -263,12 +274,12 @@ struct PostCard: View {
                                 .fontWeight(.medium)
                         }
                     }
-                    
+
                     Text(timeAgo(from: post.createdAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
             }
             

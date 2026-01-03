@@ -6,20 +6,23 @@ enum PostType: String, Codable, CaseIterable {
     case ENCOURAGEMENT
     case NUDGE
     case CELEBRATION
-    
+    case CHECK_IN
+
     var displayName: String {
         switch self {
         case .ENCOURAGEMENT: return "Encouragement"
         case .NUDGE: return "Nudge"
         case .CELEBRATION: return "Celebration"
+        case .CHECK_IN: return "Check-in"
         }
     }
-    
+
     var emoji: String {
         switch self {
         case .ENCOURAGEMENT: return "💪"
         case .NUDGE: return "👊"
         case .CELEBRATION: return "🎉"
+        case .CHECK_IN: return "✅"
         }
     }
 }
@@ -50,12 +53,13 @@ struct PodPost: Codable, Identifiable {
     let target: PostAuthor?
     let podId: String?
     let podName: String?
+    let goalTitle: String?
     let createdAt: String
-    
+
     var createdAtDate: Date? {
         ISO8601DateFormatter().date(from: createdAt)
     }
-    
+
     var hasMedia: Bool {
         mediaUrl != nil && !mediaUrl!.isEmpty
     }

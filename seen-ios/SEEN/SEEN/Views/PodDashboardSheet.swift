@@ -16,6 +16,7 @@ struct PodDashboardSheet: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showingInvite = false
+    @State private var showingCreateGoal = false
     @State private var selectedMember: MemberWithStatus?
     
     var body: some View {
@@ -66,8 +67,15 @@ struct PodDashboardSheet: View {
                     InviteSheet(inviteCode: pod.inviteCode ?? "", podName: pod.name)
                 }
             }
+            .sheet(isPresented: $showingCreateGoal) {
+                if let pod = pod {
+                    CreateGoalView(podId: podId, podName: pod.name) { _ in
+                        Task { await loadData() }
+                    }
+                }
+            }
             .sheet(item: $selectedMember) { member in
-                SimpleMemberDetailSheet(member: member)
+                SimpleMemberDetailSheet(member: member, podId: podId)
             }
             .alert("Error", isPresented: .constant(errorMessage != nil)) {
                 Button("OK") { errorMessage = nil }
@@ -174,6 +182,22 @@ struct PodDashboardSheet: View {
     
     private var actionsSection: some View {
         VStack(spacing: 12) {
+            // Add Goal button
+            Button {
+                showingCreateGoal = true
+            } label: {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                    Text("Add Goal")
+                }
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(Color.seenGreen)
+                .foregroundStyle(.white)
+                .fontWeight(.semibold)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
             // Encourage those who need it
             if !membersNeedingEncouragement.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -383,80 +407,118 @@ struct MemberCard: View {
     }
 }
 
-// MARK: - Simple Member Detail Sheet (for Pod Dashboard)
+// MARK: - Member Detail Sheet (for Pod Dashboard)
 
 struct SimpleMemberDetailSheet: View {
     let member: MemberWithStatus
-    
+    var podId: String = ""
+
     @Environment(\.dismiss) private var dismiss
-    
+    @State private var goals: [Goal] = []
+    @State private var isLoading = true
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Avatar
-                AsyncImage(url: URL(string: member.avatarUrl ?? "")) { image in
-                    image.resizable().scaledToFill()
-                } placeholder: {
-                    Circle()
-                        .fill(Color.seenGreen.opacity(0.3))
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Avatar and Name
+                    VStack(spacing: 12) {
+                        AsyncImage(url: URL(string: member.avatarUrl ?? "")) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle()
+                                .fill(Color.seenGreen.opacity(0.3))
+                                .overlay(
+                                    Text(String(member.name.prefix(1)))
+                                        .font(.largeTitle)
+                                        .fontWeight(.bold)
+                                )
+                        }
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
                         .overlay(
-                            Text(String(member.name.prefix(1)))
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
+                            Circle()
+                                .strokeBorder(member.status.color, lineWidth: 3)
                         )
-                }
-                .frame(width: 100, height: 100)
-                .clipShape(Circle())
-                
-                Text(member.name)
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                // Stats
-                HStack(spacing: 32) {
-                    VStack {
-                        Text("\(member.streak)")
-                            .font(.title)
+
+                        Text(member.name)
+                            .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundStyle(.orange)
-                        Text("Day Streak")
+
+                        // Status badge
+                        HStack(spacing: 4) {
+                            Image(systemName: member.status.icon)
+                            Text(statusText)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(member.status.color)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(member.status.color.opacity(0.15))
+                        .clipShape(Capsule())
+                    }
+
+                    // Stats Row
+                    HStack(spacing: 24) {
+                        MemberStatCard(value: "\(member.streak)", label: "Day Streak", icon: "flame.fill", color: .orange)
+                        MemberStatCard(value: "\(goals.count)", label: "Goals", icon: "target", color: .seenBlue)
+                        MemberStatCard(value: "\(goals.filter { $0.todayCheckedIn == true }.count)", label: "Done Today", icon: "checkmark.circle.fill", color: .seenGreen)
+                    }
+                    .padding(.horizontal)
+
+                    // Goals Section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("GOALS")
                             .font(.caption)
+                            .fontWeight(.bold)
                             .foregroundStyle(.secondary)
-                    }
-                    
-                    VStack {
-                        Image(systemName: member.status.icon)
-                            .font(.title)
-                            .foregroundStyle(member.status.color)
-                        Text(statusText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                // Actions
-                VStack(spacing: 12) {
-                    Button {
-                        // Send encouragement
-                    } label: {
-                        Label("Send Encouragement", systemImage: "heart.fill")
+                            .padding(.horizontal)
+
+                        if isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        } else if goals.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "target")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                                Text("No goals yet")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
                             .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                        } else {
+                            ForEach(goals) { goal in
+                                MemberGoalCard(goal: goal)
+                            }
+                        }
                     }
-                    .buttonStyle(.glassPrimary)
-                    
-                    Button {
-                        // Send nudge
-                    } label: {
-                        Label("Send Nudge", systemImage: "hand.point.up.fill")
-                            .frame(maxWidth: .infinity)
+
+                    // Actions
+                    VStack(spacing: 12) {
+                        Button {
+                            // Send encouragement
+                        } label: {
+                            Label("Send Encouragement", systemImage: "heart.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassPrimary)
+
+                        Button {
+                            // Send nudge
+                        } label: {
+                            Label("Send Nudge", systemImage: "hand.point.up.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassSecondary)
                     }
-                    .buttonStyle(.glassSecondary)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
                 }
-                .padding(.horizontal)
-                
-                Spacer()
+                .padding(.vertical)
             }
-            .padding(.top, 32)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -465,15 +527,123 @@ struct SimpleMemberDetailSheet: View {
                     }
                 }
             }
+            .task {
+                await loadMemberGoals()
+            }
         }
     }
-    
+
     private var statusText: String {
         switch member.status {
         case .completed: return "Checked In"
         case .pending: return "Pending"
         case .missed: return "Missed"
         case .noGoals: return "No Goals"
+        }
+    }
+
+    private func loadMemberGoals() async {
+        guard !podId.isEmpty else {
+            isLoading = false
+            return
+        }
+
+        do {
+            let allGoals = try await GoalService.shared.getPodGoals(podId: podId)
+            goals = allGoals.filter { $0.userId == member.id }
+            isLoading = false
+        } catch {
+            print("Failed to load member goals: \(error)")
+            isLoading = false
+        }
+    }
+}
+
+// MARK: - Member Stat Card
+
+struct MemberStatCard: View {
+    let value: String
+    let label: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                Text(value)
+                    .fontWeight(.bold)
+            }
+            .font(.title3)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Member Goal Card
+
+struct MemberGoalCard: View {
+    let goal: Goal
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Status indicator
+            Circle()
+                .fill(statusColor)
+                .frame(width: 12, height: 12)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(goal.title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                HStack(spacing: 12) {
+                    if let streak = goal.currentStreak, streak > 0 {
+                        Label("\(streak) day streak", systemImage: "flame.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+
+                    Text(frequencyText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // Check-in status
+            Image(systemName: goal.todayCheckedIn == true ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .foregroundStyle(goal.todayCheckedIn == true ? .seenGreen : .secondary)
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+
+    private var statusColor: Color {
+        if goal.todayCheckedIn == true {
+            return .seenGreen
+        } else {
+            return .orange
+        }
+    }
+
+    private var frequencyText: String {
+        guard let frequencyType = goal.frequencyType else { return "" }
+        switch frequencyType {
+        case .DAILY: return "Daily"
+        case .WEEKLY: return "Weekly"
+        case .SPECIFIC_DAYS: return "Specific days"
         }
     }
 }

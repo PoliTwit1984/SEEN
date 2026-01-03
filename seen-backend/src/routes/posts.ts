@@ -9,7 +9,7 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// GET /pods/:podId/posts - Get pod encouragement feed
+// GET /pods/:podId/posts - Get pod activity feed (posts + check-ins)
 router.get('/:podId/posts', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { podId } = req.params;
@@ -26,8 +26,18 @@ router.get('/:podId/posts', async (req: AuthenticatedRequest, res: Response): Pr
       throw new ForbiddenError('You are not a member of this pod');
     }
 
+    // Parse cursor if provided (format: "timestamp|type|id")
+    let cursorDate: Date | undefined;
+    if (cursor) {
+      cursorDate = new Date(cursor);
+    }
+
+    // Fetch posts
     const posts = await prisma.podPost.findMany({
-      where: { podId },
+      where: {
+        podId,
+        ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
+      },
       include: {
         user: {
           select: { id: true, name: true, avatarUrl: true },
@@ -38,35 +48,102 @@ router.get('/:podId/posts', async (req: AuthenticatedRequest, res: Response): Pr
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
-    const hasMore = posts.length > limit;
-    const resultPosts = hasMore ? posts.slice(0, limit) : posts;
-    const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].id : null;
+    // Fetch check-ins for this pod
+    const checkIns = await prisma.checkIn.findMany({
+      where: {
+        goal: {
+          podId,
+          isArchived: false,
+        },
+        status: 'COMPLETED',
+        ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+        goal: {
+          select: { id: true, title: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit + 1,
+    });
+
+    // Combine and sort by createdAt
+    interface FeedItem {
+      id: string;
+      type: string;
+      content: string | null;
+      mediaUrl: string | null;
+      mediaType: string | null;
+      author: { id: string; name: string; avatarUrl: string | null };
+      target: { id: string; name: string; avatarUrl: string | null } | null;
+      goalTitle?: string;
+      createdAt: Date;
+    }
+
+    const feedItems: FeedItem[] = [
+      ...posts.map((post) => ({
+        id: post.id,
+        type: post.type,
+        content: post.content,
+        mediaUrl: post.mediaUrl,
+        mediaType: post.mediaType,
+        author: {
+          id: post.user.id,
+          name: post.user.name,
+          avatarUrl: post.user.avatarUrl,
+        },
+        target: post.target
+          ? {
+              id: post.target.id,
+              name: post.target.name,
+              avatarUrl: post.target.avatarUrl,
+            }
+          : null,
+        createdAt: post.createdAt,
+      })),
+      ...checkIns.map((checkIn) => ({
+        id: checkIn.id,
+        type: 'CHECK_IN',
+        content: checkIn.comment,
+        mediaUrl: checkIn.proofUrl,
+        mediaType: checkIn.proofUrl ? 'PHOTO' : null,
+        author: {
+          id: checkIn.user.id,
+          name: checkIn.user.name,
+          avatarUrl: checkIn.user.avatarUrl,
+        },
+        target: null,
+        goalTitle: checkIn.goal.title,
+        createdAt: checkIn.createdAt,
+      })),
+    ];
+
+    // Sort by createdAt descending
+    feedItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // Apply limit
+    const hasMore = feedItems.length > limit;
+    const resultItems = feedItems.slice(0, limit);
+    const nextCursor = hasMore ? resultItems[resultItems.length - 1].createdAt.toISOString() : null;
 
     res.json({
       success: true,
       data: {
-        posts: resultPosts.map((post) => ({
-          id: post.id,
-          type: post.type,
-          content: post.content,
-          mediaUrl: post.mediaUrl,
-          mediaType: post.mediaType,
-          author: {
-            id: post.user.id,
-            name: post.user.name,
-            avatarUrl: post.user.avatarUrl,
-          },
-          target: post.target
-            ? {
-                id: post.target.id,
-                name: post.target.name,
-                avatarUrl: post.target.avatarUrl,
-              }
-            : null,
-          createdAt: post.createdAt,
+        posts: resultItems.map((item) => ({
+          id: item.id,
+          type: item.type,
+          content: item.content,
+          mediaUrl: item.mediaUrl,
+          mediaType: item.mediaType,
+          author: item.author,
+          target: item.target,
+          goalTitle: item.goalTitle,
+          createdAt: item.createdAt,
         })),
         nextCursor,
       },
