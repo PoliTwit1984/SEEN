@@ -2,12 +2,13 @@ import SwiftUI
 
 struct PodDashboardView: View {
     let podId: String
-    
+
     @State private var dashboard: PodDashboard?
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var selectedMember: MemberStatus?
     @State private var showingPostComposer = false
+    @State private var feedRefreshId = UUID()
     
     var body: some View {
         ScrollView {
@@ -28,6 +29,7 @@ struct PodDashboardView: View {
             .padding()
         }
         .refreshable {
+            feedRefreshId = UUID()
             await loadDashboard()
         }
         .task {
@@ -117,6 +119,7 @@ struct PodDashboardView: View {
         
         // Pod Feed Section
         PodFeedSection(podId: podId)
+            .id(feedRefreshId)
     }
     
     private func loadDashboard() async {
@@ -208,11 +211,13 @@ struct PodFeedSection: View {
         defer { isLoading = false }
 
         do {
+            print("📥 Loading posts for pod: \(podId)")
             let response = try await PostService.shared.getPodPosts(podId: podId)
+            print("✅ Loaded \(response.posts.count) posts")
             posts = response.posts
             nextCursor = response.nextCursor
         } catch {
-            print("Load posts error: \(error)")
+            print("❌ Load posts error: \(error)")
         }
     }
     

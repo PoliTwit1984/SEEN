@@ -218,23 +218,23 @@ router.get('/unified', async (req: AuthenticatedRequest, res: Response): Promise
         userId: req.user!.id,
         status: 'ACTIVE',
       },
-      select: { 
+      select: {
         podId: true,
         pod: {
-          select: { id: true, name: true }
-        }
+          select: { id: true, name: true },
+        },
       },
     });
 
     const podIds = memberships.map((m) => m.podId);
 
     if (podIds.length === 0) {
-      res.json({ 
-        success: true, 
-        data: { 
+      res.json({
+        success: true,
+        data: {
           items: [],
-          nextCursor: null 
-        } 
+          nextCursor: null,
+        },
       });
       return;
     }
@@ -260,34 +260,116 @@ router.get('/unified', async (req: AuthenticatedRequest, res: Response): Promise
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: take + 1, // Fetch one extra to determine if there's more
+      take: take + 1,
     });
 
-    // Determine if there are more results
-    const hasMore = posts.length > take;
-    const items = hasMore ? posts.slice(0, take) : posts;
-    const nextCursor = hasMore ? items[items.length - 1].createdAt.toISOString() : null;
+    // Get check-ins from all pods
+    const checkIns = await prisma.checkIn.findMany({
+      where: {
+        goal: {
+          podId: { in: podIds },
+          isArchived: false,
+        },
+        status: 'COMPLETED',
+        ...cursorCondition,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, avatarUrl: true },
+        },
+        goal: {
+          select: {
+            id: true,
+            title: true,
+            podId: true,
+            pod: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: take + 1,
+    });
+
+    // Combine and format feed items
+    interface FeedItem {
+      id: string;
+      type: string;
+      content: string | null;
+      mediaUrl: string | null;
+      mediaType: string | null;
+      author: { id: string; name: string; avatarUrl: string | null };
+      target: { id: string; name: string; avatarUrl: string | null } | null;
+      podId: string;
+      podName: string;
+      goalTitle?: string;
+      createdAt: Date;
+    }
+
+    const feedItems: FeedItem[] = [
+      ...posts.map((post) => ({
+        id: post.id,
+        type: post.type,
+        content: post.content,
+        mediaUrl: post.mediaUrl,
+        mediaType: post.mediaType,
+        author: {
+          id: post.user.id,
+          name: post.user.name,
+          avatarUrl: post.user.avatarUrl,
+        },
+        target: post.target
+          ? {
+              id: post.target.id,
+              name: post.target.name,
+              avatarUrl: post.target.avatarUrl,
+            }
+          : null,
+        podId: post.pod.id,
+        podName: post.pod.name,
+        createdAt: post.createdAt,
+      })),
+      ...checkIns.map((checkIn) => ({
+        id: checkIn.id,
+        type: 'CHECK_IN',
+        content: checkIn.comment,
+        mediaUrl: checkIn.proofUrl,
+        mediaType: checkIn.proofUrl ? 'PHOTO' : null,
+        author: {
+          id: checkIn.user.id,
+          name: checkIn.user.name,
+          avatarUrl: checkIn.user.avatarUrl,
+        },
+        target: null,
+        podId: checkIn.goal.pod.id,
+        podName: checkIn.goal.pod.name,
+        goalTitle: checkIn.goal.title,
+        createdAt: checkIn.createdAt,
+      })),
+    ];
+
+    // Sort by createdAt descending
+    feedItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // Apply limit
+    const hasMore = feedItems.length > take;
+    const resultItems = feedItems.slice(0, take);
+    const nextCursor = hasMore ? resultItems[resultItems.length - 1].createdAt.toISOString() : null;
 
     // Format response
-    const formattedItems = items.map((post) => ({
-      id: post.id,
-      type: post.type,
-      content: post.content,
-      mediaUrl: post.mediaUrl,
-      mediaType: post.mediaType,
-      author: {
-        id: post.user.id,
-        name: post.user.name,
-        avatarUrl: post.user.avatarUrl,
-      },
-      target: post.target ? {
-        id: post.target.id,
-        name: post.target.name,
-        avatarUrl: post.target.avatarUrl,
-      } : null,
-      podId: post.pod.id,
-      podName: post.pod.name,
-      createdAt: post.createdAt.toISOString(),
+    const formattedItems = resultItems.map((item) => ({
+      id: item.id,
+      type: item.type,
+      content: item.content,
+      mediaUrl: item.mediaUrl,
+      mediaType: item.mediaType,
+      author: item.author,
+      target: item.target,
+      podId: item.podId,
+      podName: item.podName,
+      goalTitle: item.goalTitle,
+      createdAt: item.createdAt.toISOString(),
     }));
 
     res.json({
