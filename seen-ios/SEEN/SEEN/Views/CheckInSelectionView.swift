@@ -340,9 +340,12 @@ struct QuickCheckInView: View {
 
             onComplete()
             dismiss()
+        } catch let apiError as APIError {
+            print("Check-in failed with API error: \(apiError)")
+            errorMessage = apiError.localizedDescription ?? "Failed to submit check-in"
         } catch {
             print("Check-in failed: \(error)")
-            errorMessage = "Failed to submit check-in"
+            errorMessage = error.localizedDescription
         }
     }
 }
