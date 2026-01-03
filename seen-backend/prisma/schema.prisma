@@ -27,6 +27,7 @@ model User {
   goals         Goal[]
   checkIns      CheckIn[]
   interactions  Interaction[]
+  deviceTokens  DeviceToken[]
 
   @@map("users")
 }
@@ -183,6 +184,22 @@ model Interaction {
   @@unique([checkInId, userId])
   @@index([userId])
   @@map("interactions")
+}
+
+// ============== DEVICE TOKENS (Phase 7) ==============
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  platform  String   @default("ios") // ios, android
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // ============== WAITLIST ==============

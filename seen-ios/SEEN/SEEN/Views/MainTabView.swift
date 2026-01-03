@@ -37,6 +37,8 @@ struct MainTabView: View {
 struct ProfileView: View {
     var authService: AuthService
     @State private var showingSignOutAlert = false
+    @State private var notificationsEnabled = false
+    @State private var isRequestingNotifications = false
     
     var body: some View {
         NavigationStack {
@@ -74,6 +76,38 @@ struct ProfileView: View {
                     }
                 }
                 
+                // Notifications
+                Section {
+                    if notificationsEnabled {
+                        HStack {
+                            Label("Notifications", systemImage: "bell.badge.fill")
+                            Spacer()
+                            Text("Enabled")
+                                .foregroundStyle(.green)
+                        }
+                    } else {
+                        Button {
+                            Task { await requestNotifications() }
+                        } label: {
+                            HStack {
+                                Label("Enable Notifications", systemImage: "bell")
+                                Spacer()
+                                if isRequestingNotifications {
+                                    ProgressView()
+                                } else {
+                                    Image(systemName: "chevron.right")
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        .disabled(isRequestingNotifications)
+                    }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Get notified about reminders, reactions, and missed check-ins")
+                }
+                
                 // App Info
                 Section {
                     HStack {
@@ -109,7 +143,16 @@ struct ProfileView: View {
             if authService.currentUser == nil {
                 await authService.fetchCurrentUser()
             }
+            notificationsEnabled = NotificationService.shared.isAuthorized
         }
+    }
+    
+    private func requestNotifications() async {
+        isRequestingNotifications = true
+        defer { isRequestingNotifications = false }
+        
+        let granted = await NotificationService.shared.requestPermission()
+        notificationsEnabled = granted
     }
 }
 

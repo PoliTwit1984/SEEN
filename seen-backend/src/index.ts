@@ -8,6 +8,7 @@ import goalRoutes from './routes/goals';
 import checkInRoutes from './routes/checkins';
 import feedRoutes from './routes/feed';
 import interactionRoutes from './routes/interactions';
+import deviceRoutes from './routes/devices';
 import waitlistRoutes from './routes/waitlist';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
@@ -50,6 +51,7 @@ app.use('/goals', goalRoutes);
 app.use('/checkins', checkInRoutes);
 app.use('/feed', feedRoutes);
 app.use('/interactions', interactionRoutes);
+app.use('/devices', deviceRoutes);
 app.use('/waitlist', waitlistRoutes);
 
 // Error handler

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, AuthenticatedRequest } from '../middleware/auth';
 import { ValidationError, NotFoundError, ForbiddenError } from '../lib/errors';
+import { notifyReaction } from '../lib/push';
 
 const router = Router();
 
@@ -93,6 +94,18 @@ router.post('/', async (req: AuthenticatedRequest, res: Response): Promise<void>
         },
       },
     });
+
+    // Send push notification (don't notify yourself)
+    if (checkIn.userId !== req.user!.id) {
+      const emoji = type === 'HIGH_FIVE' ? '🙌' : type === 'FIRE' ? '🔥' : type === 'CLAP' ? '👏' : '❤️';
+      notifyReaction(
+        checkIn.userId,
+        req.user!.name,
+        emoji,
+        checkIn.goal.title,
+        checkInId
+      ).catch((err) => console.error('Push notification error:', err));
+    }
 
     res.status(201).json({
       success: true,
