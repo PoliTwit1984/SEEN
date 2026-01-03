@@ -13,6 +13,7 @@ import uploadRoutes from './routes/uploads';
 import waitlistRoutes from './routes/waitlist';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './lib/prisma';
+import { startDeadlineWorker, scheduleAllDeadlineChecks } from './workers/deadlineWorker';
 
 dotenv.config();
 
@@ -60,8 +61,19 @@ app.use('/waitlist', waitlistRoutes);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`SEEN API running on port ${PORT}`);
+  
+  // Start workers
+  startDeadlineWorker();
+  
+  // Schedule deadline checks for today
+  await scheduleAllDeadlineChecks();
+  
+  // Re-schedule every hour to catch new goals
+  setInterval(async () => {
+    await scheduleAllDeadlineChecks();
+  }, 60 * 60 * 1000);
 });
 
 // Graceful shutdown
