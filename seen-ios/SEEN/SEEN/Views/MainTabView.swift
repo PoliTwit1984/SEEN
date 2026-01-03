@@ -42,7 +42,6 @@ struct UnifiedFeedView: View {
     @State private var showingCreatePost = false
     @State private var showingPodDashboard = false
     @State private var showingActionSheet = false
-    @State private var useMockData = false // For demo purposes
     
     // Selected pod info
     var selectedPod: PodRingData? {
@@ -265,17 +264,11 @@ struct UnifiedFeedView: View {
     private func loadData() async {
         isLoading = true
         defer { isLoading = false }
-        
-        // Use mock data for demo
-        if useMockData {
-            loadMockData()
-            return
-        }
-        
+
         do {
             // Load pods first
             pods = try await PodService.shared.getMyPods()
-            
+
             // Convert to PodRingData
             podRings = pods.map { pod in
                 PodRingData(
@@ -286,225 +279,19 @@ struct UnifiedFeedView: View {
                     isAllPods: false
                 )
             }
-            
+
             // Load unified feed
             let response = try await FeedService.shared.getUnifiedFeed()
             feedPosts = response.items
             nextCursor = response.nextCursor
-            
+
         } catch let error as APIError {
-            // If API fails, fall back to mock data for demo
-            print("API error, using mock data: \(error)")
-            loadMockData()
+            errorMessage = "Failed to load feed: \(error.localizedDescription)"
+            print("API error: \(error)")
         } catch {
-            print("Load data error, using mock data: \(error)")
-            loadMockData()
+            errorMessage = "Failed to load feed: \(error.localizedDescription)"
+            print("Load data error: \(error)")
         }
-    }
-    
-    private func loadMockData() {
-        // Mock pods with photos and member avatars
-        podRings = [
-            PodRingData(
-                id: "pod1",
-                name: "Fitness Squad",
-                status: .allCompleted,
-                hasNewActivity: true,
-                isAllPods: false,
-                photoUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200",
-                memberAvatars: []
-            ),
-            PodRingData(
-                id: "pod2",
-                name: "Book Club",
-                status: .hasPending,
-                hasNewActivity: false,
-                isAllPods: false,
-                photoUrl: nil,
-                memberAvatars: ["https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23", "https://i.pravatar.cc/100?img=15"]
-            ),
-            PodRingData(
-                id: "pod3",
-                name: "Morning Routines",
-                status: .noGoals,
-                hasNewActivity: true,
-                isAllPods: false,
-                photoUrl: "https://images.unsplash.com/photo-1545389336-cf090694435e?w=200",
-                memberAvatars: []
-            ),
-        ]
-        
-        // Mock pod details with member info
-        pods = [
-            PodListItem(
-                id: "pod1",
-                name: "Fitness Squad",
-                description: "Daily workouts and fitness challenges. Let's get fit together! 💪",
-                stakes: "Loser buys coffee",
-                memberCount: 4,
-                maxMembers: 6,
-                role: .MEMBER,
-                joinedAt: ISO8601DateFormatter().string(from: Date()),
-                createdAt: ISO8601DateFormatter().string(from: Date()),
-                memberAvatars: ["https://i.pravatar.cc/100?img=5", "https://i.pravatar.cc/100?img=8", "https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23"]
-            ),
-            PodListItem(
-                id: "pod2",
-                name: "Book Club",
-                description: "Reading 20 pages a day. Share your progress and discuss!",
-                stakes: nil,
-                memberCount: 3,
-                maxMembers: 5,
-                role: .OWNER,
-                joinedAt: ISO8601DateFormatter().string(from: Date()),
-                createdAt: ISO8601DateFormatter().string(from: Date()),
-                memberAvatars: ["https://i.pravatar.cc/100?img=12", "https://i.pravatar.cc/100?img=23", "https://i.pravatar.cc/100?img=15"]
-            ),
-            PodListItem(
-                id: "pod3",
-                name: "Morning Routines",
-                description: "Wake up early, meditate, journal. Building better habits.",
-                stakes: nil,
-                memberCount: 5,
-                maxMembers: 8,
-                role: .MEMBER,
-                joinedAt: ISO8601DateFormatter().string(from: Date()),
-                createdAt: ISO8601DateFormatter().string(from: Date()),
-                memberAvatars: ["https://i.pravatar.cc/100?img=9", "https://i.pravatar.cc/100?img=17", "https://i.pravatar.cc/100?img=21", "https://i.pravatar.cc/100?img=33", "https://i.pravatar.cc/100?img=44"]
-            )
-        ]
-        
-        // Mock feed posts from multiple pods
-        feedPosts = [
-            PodPost(
-                id: "1",
-                type: .CHECK_IN,
-                content: "Just hit a 10-day streak! Feeling unstoppable!",
-                mediaUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400",
-                mediaType: .PHOTO,
-                author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
-                target: nil,
-                podId: "pod1",
-                podName: "Fitness Squad",
-                goalTitle: "Morning Workout",
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800)),
-                goalDescription: "30 minutes of exercise every morning before work",
-                goalFrequency: "Daily",
-                currentStreak: 10,
-                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-1800)),
-                reactionCount: 5,
-                commentCount: 2,
-                myReaction: .FIRE,
-                topReactions: [.FIRE, .HIGH_FIVE]
-            ),
-            PodPost(
-                id: "2",
-                type: .ENCOURAGEMENT,
-                content: "You've got this! Just 30 more pages to go!",
-                mediaUrl: nil,
-                mediaType: nil,
-                author: PostAuthor(id: "user2", name: "Mike", avatarUrl: "https://i.pravatar.cc/150?img=12"),
-                target: PostAuthor(id: "user3", name: "Emma", avatarUrl: nil),
-                podId: "pod2",
-                podName: "Book Club",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600)),
-                goalDescription: nil,
-                goalFrequency: nil,
-                currentStreak: nil,
-                completedAt: nil,
-                reactionCount: 1,
-                commentCount: 0,
-                myReaction: nil,
-                topReactions: [.HEART]
-            ),
-            PodPost(
-                id: "3",
-                type: .NUDGE,
-                content: "Hey, don't forget your morning workout! We're waiting for your check-in",
-                mediaUrl: nil,
-                mediaType: nil,
-                author: PostAuthor(id: "user4", name: "Alex", avatarUrl: "https://i.pravatar.cc/150?img=8"),
-                target: PostAuthor(id: "user5", name: "Jordan", avatarUrl: nil),
-                podId: "pod1",
-                podName: "Fitness Squad",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-5400)),
-                goalDescription: nil,
-                goalFrequency: nil,
-                currentStreak: nil,
-                completedAt: nil,
-                reactionCount: 0,
-                commentCount: 1,
-                myReaction: nil,
-                topReactions: []
-            ),
-            PodPost(
-                id: "4",
-                type: .CHECK_IN,
-                content: "Morning meditation done! Starting the day with a clear mind",
-                mediaUrl: "https://images.unsplash.com/photo-1545389336-cf090694435e?w=400",
-                mediaType: .PHOTO,
-                author: PostAuthor(id: "user6", name: "Luna", avatarUrl: "https://i.pravatar.cc/150?img=9"),
-                target: nil,
-                podId: "pod3",
-                podName: "Morning Routines",
-                goalTitle: "Morning Meditation",
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200)),
-                goalDescription: "10 minutes of mindfulness every morning",
-                goalFrequency: "Daily",
-                currentStreak: 7,
-                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200)),
-                reactionCount: 3,
-                commentCount: 0,
-                myReaction: .HEART,
-                topReactions: [.HEART, .CLAP]
-            ),
-            PodPost(
-                id: "5",
-                type: .ENCOURAGEMENT,
-                content: "Great job on finishing that chapter! The ending was so good, right?",
-                mediaUrl: nil,
-                mediaType: nil,
-                author: PostAuthor(id: "user3", name: "Emma", avatarUrl: "https://i.pravatar.cc/150?img=23"),
-                target: PostAuthor(id: "user2", name: "Mike", avatarUrl: nil),
-                podId: "pod2",
-                podName: "Book Club",
-                goalTitle: nil,
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-10800)),
-                goalDescription: nil,
-                goalFrequency: nil,
-                currentStreak: nil,
-                completedAt: nil,
-                reactionCount: 2,
-                commentCount: 0,
-                myReaction: nil,
-                topReactions: [.HIGH_FIVE, .CLAP]
-            ),
-            PodPost(
-                id: "6",
-                type: .CHECK_IN,
-                content: "5K run complete! Personal best time",
-                mediaUrl: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400",
-                mediaType: .PHOTO,
-                author: PostAuthor(id: "user1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
-                target: nil,
-                podId: "pod1",
-                podName: "Fitness Squad",
-                goalTitle: "Run 5K",
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400)),
-                goalDescription: "Run 5 kilometers three times a week",
-                goalFrequency: "Mon, Wed, Fri",
-                currentStreak: 4,
-                completedAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-14400)),
-                reactionCount: 8,
-                commentCount: 3,
-                myReaction: .FIRE,
-                topReactions: [.FIRE, .HIGH_FIVE, .CLAP]
-            ),
-        ]
-        
-        nextCursor = nil
     }
     
     private func loadMorePosts() async {
@@ -631,11 +418,15 @@ struct UnifiedPostCard: View {
     @ViewBuilder
     private var checkInMetadata: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Goal title
+            // Goal title with icon
             if let goalTitle = post.goalTitle {
-                Text(goalTitle)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                HStack(spacing: 6) {
+                    Image(systemName: "target")
+                        .foregroundStyle(.seenGreen)
+                    Text(goalTitle)
+                        .fontWeight(.semibold)
+                }
+                .font(.headline)
             }
 
             // Goal description
@@ -1362,49 +1153,12 @@ struct ProfileView: View {
     private func loadPods() async {
         isLoadingPods = true
         defer { isLoadingPods = false }
-        
+
         do {
             pods = try await PodService.shared.getMyPods()
         } catch {
-            // Use mock data on error
-            pods = [
-                PodListItem(
-                    id: "pod1",
-                    name: "Fitness Squad",
-                    description: "Daily workouts and fitness challenges",
-                    stakes: "Loser buys coffee",
-                    memberCount: 4,
-                    maxMembers: 6,
-                    role: .MEMBER,
-                    joinedAt: ISO8601DateFormatter().string(from: Date()),
-                    createdAt: ISO8601DateFormatter().string(from: Date()),
-                    memberAvatars: nil
-                ),
-                PodListItem(
-                    id: "pod2",
-                    name: "Book Club",
-                    description: "Reading 20 pages a day",
-                    stakes: nil,
-                    memberCount: 3,
-                    maxMembers: 5,
-                    role: .OWNER,
-                    joinedAt: ISO8601DateFormatter().string(from: Date()),
-                    createdAt: ISO8601DateFormatter().string(from: Date()),
-                    memberAvatars: nil
-                ),
-                PodListItem(
-                    id: "pod3",
-                    name: "Morning Routines",
-                    description: "Wake up early, meditate, journal",
-                    stakes: nil,
-                    memberCount: 5,
-                    maxMembers: 8,
-                    role: .MEMBER,
-                    joinedAt: ISO8601DateFormatter().string(from: Date()),
-                    createdAt: ISO8601DateFormatter().string(from: Date()),
-                    memberAvatars: nil
-                )
-            ]
+            errorMessage = "Failed to load pods: \(error.localizedDescription)"
+            print("Load pods error: \(error)")
         }
     }
     

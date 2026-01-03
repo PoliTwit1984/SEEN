@@ -207,9 +207,8 @@ struct CommentsSheet: View {
             comments = response.comments
             nextCursor = response.nextCursor
         } catch {
+            errorMessage = "Failed to load comments: \(error.localizedDescription)"
             print("Failed to load comments: \(error)")
-            // Show mock data for demo
-            loadMockComments()
         }
     }
 
@@ -266,27 +265,6 @@ struct CommentsSheet: View {
         } catch {
             errorMessage = "Failed to delete comment"
         }
-    }
-
-    private func loadMockComments() {
-        comments = [
-            FeedComment(
-                id: "c1",
-                content: "This is amazing! Keep it up!",
-                mediaUrl: nil,
-                mediaType: nil,
-                author: FeedUser(id: "u1", name: "Sarah", avatarUrl: "https://i.pravatar.cc/150?img=5"),
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-3600))
-            ),
-            FeedComment(
-                id: "c2",
-                content: "Wow, that's inspiring!",
-                mediaUrl: nil,
-                mediaType: nil,
-                author: FeedUser(id: "u2", name: "Mike", avatarUrl: "https://i.pravatar.cc/150?img=12"),
-                createdAt: ISO8601DateFormatter().string(from: Date().addingTimeInterval(-7200))
-            ),
-        ]
     }
 }
 
